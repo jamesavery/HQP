@@ -1,7 +1,7 @@
 module Main where 
 
 import HQP.QOp
-import HQP.QOp.MPSSemantics
+import HQP.QOp.StatevectorSemantics
 import HQP.PrettyPrint
 
 import Programs.MatrixPreparation
@@ -32,11 +32,11 @@ main = do
     --printS $ ( (matrixPrepTester4 ()))
     --print (show (matrixPrepTester5 ())) 
     --printS $ ( (matrixPrepTester5 ()))
-    printS $ ( (productTester ()))
+    --printS $ ( (productTester ()))
     --print (show (productTester ())) --DENNE GIVER MÆRKELIGT OUTPUT. VIS FREM
     --print (show (sumTester ()))
-    --printbuildRowQOpTester
-    --printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
+    -- printbuildRowQOpTester
+    printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
  
  {--
     let 
@@ -70,11 +70,13 @@ main = do
 
 directSumTest :: () -> StateT
 directSumTest () =
-    let vec = V.fromList [X,X,X,X]
-        dsQOp =  V.foldl1 processPairTest vec
-        dsQOt = trace(show dsQOp) $ evalOp $ dsQOp 
+    let 
+        a = (X ⊕ X) ⊕ (X ⊕ X)
     in
-        apply dsQOt (ket [1,0,1,0])
+        trace(showOp a) $
+        apply (evalOp a)  (ket [1,0,1])
+        
+
 
 processPairTest :: QOp -> QOp -> QOp
 processPairTest x y = DirectSum x y

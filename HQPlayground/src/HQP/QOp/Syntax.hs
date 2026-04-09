@@ -23,7 +23,7 @@ data QOp
   | C QOp           -- Controlled (possibly multi-qubit) operator
   | Permute [Int]                                                                 
   | Tensor QOp QOp 
-  | DirectSum QOp QOp       
+  | DirectSum QOp QOp -- Direct sum of operators with same arity.      
   | Compose QOp QOp                        
   | Adjoint QOp 
   deriving (Show,Eq)

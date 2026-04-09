@@ -30,13 +30,13 @@ main = do
     --print (show (matrixPrepTester3 ())) 
     --print (show (matrixPrepTester4 ())) 
     --printS $ ( (matrixPrepTester4 ()))
-    --print (show (matrixPrepTester5 ())) 
+    print (show (matrixPrepTester5 ())) 
     --printS $ ( (matrixPrepTester5 ()))
     --printS $ ( (productTester ()))
-    --print (show (productTester ())) --DENNE GIVER MÆRKELIGT OUTPUT. VIS FREM
+    -- print (show (productTester ())) --DENNE GIVER MÆRKELIGT OUTPUT. VIS FREM
     --print (show (sumTester ()))
     -- printbuildRowQOpTester
-    printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
+    -- printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
  
  {--
     let 
@@ -135,7 +135,7 @@ sumTester () =
         toLists (subMat matOut (addMat matIn1 matIn2)) --Forskellen sendes videre 
 
 
-productTester :: () -> StateT--[[ComplexT]]
+productTester :: () -> [[ComplexT]]
 productTester () =
     let
         -- Matrix data
@@ -158,8 +158,8 @@ productTester () =
         m11 = inner (ket [0,0,0]) finalState1
         m12 = inner (ket [0,0,0]) finalState2
         
-        m21 = inner (ket [1,0,0]) finalState1 -- Jeg kan ikke få disse til at give det rigtige med 001. 
-        m22 = inner (ket [1,0,0]) finalState2 -- Trods at finalState2 = ...+ 3*001 + ... får m22 IKKE værdien 3 som den bør
+        m21 = inner (ket [0,0,1]) finalState1 -- Jeg kan ikke få disse til at give det rigtige med 001. 
+        m22 = inner (ket [0,0,1]) finalState2 -- Trods at finalState2 = ...+ 3*001 + ... får m22 IKKE værdien 3 som den bør
                                               -- Tror altså at det er en fejl som IKKE er i productEncoding
 
         matOutData =   [[m11,m12], [m21,m22]]
@@ -168,7 +168,8 @@ productTester () =
     
         matInProduct = fromRows ([[2,1], [4,3]])
     in 
-        finalState2--toLists (subMat matOut matInProduct) --Forskellen sendes videre 
+        --finalState2
+        toLists (subMat matOut matInProduct) --Forskellen sendes videre 
 
 buildRowQOpTester :: () -> [StateT] 
 buildRowQOpTester =

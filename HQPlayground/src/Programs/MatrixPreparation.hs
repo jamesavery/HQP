@@ -1,6 +1,5 @@
 module Programs.MatrixPreparation where
 import HQP
-import HQP.QOp.MPSSemantics
 import Data.Complex
 import Data.Ratio
 import System.Random(mkStdGen, randoms)
@@ -295,19 +294,19 @@ calculateComplexGate :: Double -> Double -> Double -> Double -> QOp
 calculateComplexGate r1 phi1 r2 phi2 
     | abs r1 < 1e-9 && abs r2 < 1e-9 = I
     | otherwise =
-        let phi   = phi2 - phi1
-            lambda = - (phi1 + phi2)
-            theta = if r1 == 0 then pi else 2 * acos (r1 / sqrt (r1**2 + r2**2))
+        let phi    = toRational $   (phi2 - phi1)/pi
+            lambda = toRational $  -(phi1 + phi2)/pi
+            theta  = toRational $ if r1 == 0 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2)) 
         in 
-            (Ra Z phi) ∘ (Ra Y theta) ∘ (Ra Z lambda)
+            (R Z (-phi)) ∘ (R Y (-theta)) ∘ (R Z (-lambda))
 
 calculateRealGate :: Double -> Double -> QOp
 calculateRealGate r1 r2
     | abs r1 < 1e-9 && abs r2 < 1e-9 = I
     | otherwise =
-        let theta = if abs r1 < 1e-9 then pi else 2 * acos (r1 / sqrt (r1**2 + r2**2))
+        let theta = toRational $ if abs r1 < 1e-9 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2)) 
         in 
-            Ra Y theta
+            R Y (-theta)
 
 toBitString :: Int -> Int -> [Int]
 toBitString n bitStrLen

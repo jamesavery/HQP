@@ -56,6 +56,8 @@ library core
       HQP.PrettyPrint.PrettyMatrix
       -- Example quantum programs written in HQP:
       Programs.QFT
+      Programs.MatrixPreparation
+      Programs.MatrixArithmetic
       Programs.QuantumAdder
       Programs.RepeaterProtocol
 
@@ -123,3 +125,10 @@ executable TestQFT
       -Wno-name-shadowing
       -Wno-incomplete-uni-patterns      
 
+executable MatrixPreparationTest
+  import: exe-common
+  build-depends:
+    random,
+    vector
+  main-is: MatrixPreparationTest.hs
+   

@@ -58,6 +58,8 @@ library core
       Programs.QFT
       Programs.MatrixPreparation
       Programs.MatrixArithmetic
+      Programs.Qubitization
+      Programs.SVT
       Programs.QuantumAdder
       Programs.RepeaterProtocol
 
@@ -74,7 +76,8 @@ library core
         deepseq,
         ieee754,
         pqueue,
-        tasty
+        tasty,
+        dsp
 --        hasktorch
     hs-source-dirs:   src
 
@@ -132,3 +135,19 @@ executable MatrixPreparationTest
     vector
   main-is: MatrixPreparationTest.hs
    
+executable SVTtest
+  import: exe-common
+  build-depends:
+    random,
+    vector,
+    dsp,
+    containers
+  main-is: SVTtest.hs
+
+executable Qubitizationtest
+  import: exe-common
+  build-depends:
+    random,
+    vector,
+    dsp
+  main-is: Qubitizationtest.hs

@@ -15,8 +15,7 @@ import Debug.Trace
 svtVectorPhi :: [ComplexT] -> [ComplexT] -> Seq Double
 svtVectorPhi p q =
     let
-        -- 1. Generate the sequence
-        -- (If qspVectorPhi returns a list, use Seq.fromList)
+        -- Generate a sequence
         qspVector = Seq.fromList (qspVectorPhi p q)
 
         -- 2. Modify to get the SVT vector

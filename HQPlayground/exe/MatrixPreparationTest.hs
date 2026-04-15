@@ -1,4 +1,4 @@
-module Main where 
+module Main where
 
 import HQP.QOp
 import HQP.QOp.StatevectorSemantics
@@ -26,11 +26,10 @@ printbuildRowQOpTester = do
 
 main :: IO ()
 main = do
-    --printS $ ( (matrixPrepTester2 ())) 
+    print (show (matrixPrepTester2 ())) 
     --print (show (matrixPrepTester3 ())) 
     --print (show (matrixPrepTester4 ())) 
-    --printS $ ( (matrixPrepTester4 ()))
-    print (show (matrixPrepTester5 ())) 
+    --print (show (matrixPrepTester5 ())) 
     --printS $ ( (matrixPrepTester5 ()))
     --printS $ ( (productTester ()))
     -- print (show (productTester ())) --DENNE GIVER MÆRKELIGT OUTPUT. VIS FREM
@@ -38,35 +37,6 @@ main = do
     -- printbuildRowQOpTester
     -- printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
  
- {--
-    let 
-        opInner001 = ((X ⊗ I) <> (C I) <> (X ⊗ I))
-        op001 = (C opInner001)
-        op001Alt = (C (Id 2))  
-
-    printS $ ((apply (evalOp opInner001) (ket [0,0])))
-    printS $ ((apply (evalOp opInner001) (ket [0,1])))
-    printS $ ((apply (evalOp opInner001) (ket [1,0])))
-    printS $ ((apply (evalOp opInner001) (ket [1,1])))
-    print "---------Her kommer et underligt resultat:-----------"
-    printS $ ((apply (evalOp op001) (ket [0,0,0])))
-    printS $ ((apply (evalOp op001) (ket [0,0,1])))
-    printS $ ((apply (evalOp op001) (ket [0,1,0])))
-    printS $ ((apply (evalOp op001) (ket [0,1,1])))
-    printS $ ((apply (evalOp op001) (ket [1,0,0])))
-    printS $ ((apply (evalOp op001) (ket [1,0,1])))
-    printS $ ((apply (evalOp op001) (ket [1,1,0])))
-    printS $ ((apply (evalOp op001) (ket [1,1,1])))
-    print "---------Her er hvordan det burde se ud:-----------"
-    printS $ ((apply (evalOp op001Alt) (ket [0,0,0])))
-    printS $ ((apply (evalOp op001Alt) (ket [0,0,1])))
-    printS $ ((apply (evalOp op001Alt) (ket [0,1,0])))
-    printS $ ((apply (evalOp op001Alt) (ket [0,1,1])))
-    printS $ ((apply (evalOp op001Alt) (ket [1,0,0])))
-    printS $ ((apply (evalOp op001Alt) (ket [1,0,1])))
-    printS $ ((apply (evalOp op001Alt) (ket [1,1,0])))
-    printS $ ((apply (evalOp op001Alt) (ket [1,1,1])))
---}
 
 directSumTest :: () -> StateT
 directSumTest () =
@@ -75,8 +45,6 @@ directSumTest () =
     in
         trace(showOp a) $
         apply (evalOp a)  (ket [1,0,1])
-        
-
 
 processPairTest :: QOp -> QOp -> QOp
 processPairTest x y = DirectSum x y
@@ -200,6 +168,49 @@ buildRowQOpTester =
 
     in
         return [finalState2,finalState3,finalState4,finalState5]
+
+
+matrixPrepTester2 :: () -> [[ComplexT]] 
+matrixPrepTester2 () =
+     let
+        matData =  [[ 0.6 :+ 0.0, 0.0 :+ 0.0 ], 
+                    [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]
+
+        matIn = fromRows matData
+        matQOt = evalOp $ matrixPrep matIn
+
+        finalState1 =  (apply matQOt (ket [0,0]))
+        finalState2 =  (apply matQOt (ket [0,1]))
+        finalState3 =  (apply matQOt (ket [1,0]))
+        finalState4 =  (apply matQOt (ket [1,1]))
+
+     
+        m11 = inner  (ket [0,0]) finalState1
+        m12 = inner  (ket [0,0]) finalState2
+        m13 = inner  (ket [0,0]) finalState3
+        m14 = inner  (ket [0,0]) finalState4
+
+        m21 = inner  (ket [0,1]) finalState1
+        m22 = inner  (ket [0,1]) finalState2
+        m23 = inner  (ket [0,1]) finalState3
+        m24 = inner  (ket [0,1]) finalState4
+
+        m31 = inner  (ket [1,0]) finalState1
+        m32 = inner  (ket [1,0]) finalState2
+        m33 = inner  (ket [1,0]) finalState3
+        m34 = inner  (ket [1,0]) finalState4
+        
+        m41 = inner  (ket [1,1]) finalState1
+        m42 = inner  (ket [1,1]) finalState2
+        m43 = inner  (ket [1,1]) finalState3
+        m44 = inner  (ket [1,1]) finalState4
+ 
+        matOutData = [[m11,m12,m13,m14], [m21,m22,m23,m24], [m31,m32,m33,m34], [m41,m42,m43,m44]]
+        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+    in 
+        toLists matOut --(subMat matOut matIn) --Forskellen sendes videre  
+
+
 
 matrixPrepTester3 :: () -> [[ComplexT]] 
 matrixPrepTester3 () =

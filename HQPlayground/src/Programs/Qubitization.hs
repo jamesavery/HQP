@@ -4,9 +4,9 @@ import Polynomial.Roots (roots) -- From dsp package
 import Polynomial.Basic (polyadd, polysub, polymult,polyderiv, polyeval)
 import Data.Complex (Complex((:+)), realPart, imagPart,magnitude,polar)
 import qualified Data.Vector as V
-import Data.List (sortOn,sortBy, groupBy, partition)
+import Data.List (sortOn,sortBy, groupBy, partition,foldl',dropWhileEnd)
 import Data.Ord (comparing)
---import Debug.Trace
+import Debug.Trace
 
 --------------------------------------------------------------------------------
 ------------- Quantum signal processing-----------------------------------
@@ -18,7 +18,7 @@ qspVectorPhi :: [ComplexT] -> [ComplexT] -> [Double]
 qspVectorPhi p q
     | polyDegree p == 0 =
         let 
-            (_, phi) = polar (head p)
+            (_, phi) = trace("Sidste gang: p: " ++ show p ++ "q: " ++ show q) $ polar (head p)
         in  
             [phi]           
 
@@ -45,9 +45,12 @@ qspVectorPhi p q
 
             qNextTerm1 = map (* lTermFrac) (polymult xPoly q)
             qNext = map (* exp (-(0.0 :+ phi))) ( polysub qNextTerm1 p)
-        in
-            (qspVectorPhi pNext qNext) ++ [phi]
 
+            pNextFinal = removeSmallTrailing pNext
+            qNextFinal = removeSmallTrailing qNext
+        in
+            --(qspVectorPhi pNext qNext) ++ [phi]
+            (qspVectorPhi pNextFinal qNextFinal) ++ [phi] 
 
 --------------------------------------------------------------------------------
 ------------- From real to complex polynomial-----------------------------------
@@ -57,7 +60,7 @@ qspVectorPhi p q
 -- ... KOMMER SENERE ... and
 -- P(x)^2 <= 1 for x in [-1,1]
 -- qspPolys calculates the pair of complex polynomials satisfying the conditions in Gilyen et al. (2018) Theorem 5.
--- The polynomials are used in algorithm (qspVectorPhi) that finds the quantum signal processing vector.
+-- The polynomials are used in the algorithm (qspVectorPhi) that finds the quantum signal processing vector.
 qspPolys :: [Double] -> ([ComplexT], [ComplexT])
 qspPolys realEvenPosPoly 
     | not (checkPolyBounds realEvenPosPoly) = 
@@ -122,7 +125,7 @@ createRealPolyPair coeffs =
 
                 -- Group 2: Remaining relevant roots (Filter and map)
                 remainingPairs = map rootToPolyPair $ 
-                    filter (\(r :+ i) -> (r >= 0 && i > 0) || (r >= 1 && i == 0)) others
+                    filter (\(r :+ i) -> (r > - epsilon && i > epsilon) || (r > 1 - epsilon && abs i < epsilon)) others
 
             in foldr (*) initialScale (subOnePairs ++ remainingPairs)
 
@@ -175,7 +178,7 @@ rootToPolyPair z
     -- Case: z in [1, infinity) (Real axis >= 1)
     | abs im < epsilon && re > 1 - epsilon = 
         let
-            rePol = [0,sqrt(re^2 - 1)]
+            rePol = [0,sqrt((max re 1)^2 - 1)]
             imPol = [re]
         in
             PolyPair (rePol, imPol)
@@ -241,20 +244,30 @@ poly2 (PolyPair (_, q)) = q
 ------------- Helpers ----------------------------------------------------------
 --------------------------------------------------------------------------------
 
--- isEven        M.I.A
+-- isEven      
 -- parityInt 
 
 -- Typical degree calculation for dsp-style lists [a0, a1, ..., an]
-polyDegree :: (Num a, Eq a) => [a] -> Int
-polyDegree [] = -1  -- The zero polynomial has degree -1 by convention
-polyDegree as = length (reverse (dropWhile (==0) (reverse as))) - 1
-
+polyDegree :: (RealFloat a) => [Complex a] -> Int
+polyDegree as = foldl' findMaxIndex (-1) (zip [0..] as)
+  where
+    epsilon = 1e-3
+    findMaxIndex acc (i, x) 
+        | magnitude x > epsilon = i
+        | otherwise       = acc
 
 getLeadingOrderTerm :: (Eq a, Num a) => [a] -> Maybe (a,Int)
 getLeadingOrderTerm coeffs = 
     case dropWhile (== 0) (reverse coeffs) of
         []    -> Nothing                -- The polynomial is zero
         (x:_) -> Just (x, length (dropWhile (== 0) (reverse coeffs)) - 1)
+
+removeSmallTrailing :: [ComplexT] -> [ComplexT]
+removeSmallTrailing = 
+    let 
+        epsilon = 1e-3
+    in 
+        dropWhileEnd (\c -> magnitude c < epsilon)
 
 -- | Checks if p(x)^2 <= 1 for all x in [-1, 1] using dsp package functions
 checkPolyBounds :: [Double] -> Bool

@@ -1,15 +1,12 @@
 module Main where 
 import HQP
 import Programs.Qubitization
-import Data.Complex (Complex((:+)),magnitude)
-import Polynomial.Roots (roots) -- From dsp package
-import Polynomial.Basic (polyadd, polysub, polymult)
 
 main :: IO ()
 main = do
-    --print (show (createRealBCTest())) 
+    print (show (createRealBCTest())) 
     print (show (qspVectorPhiTest()))
-    --print (show (qspPolysTest()))
+    print (show (qspPolysTest()))
 
 
 -----------------------------------------------------------------  

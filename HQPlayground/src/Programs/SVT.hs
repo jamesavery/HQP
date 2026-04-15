@@ -9,7 +9,7 @@ import Data.List (sortOn,sortBy, groupBy, partition)
 import Data.Ord (comparing)
 import Data.Sequence (Seq(..), (><))
 import qualified Data.Sequence as Seq
-import Debug.Trace
+--import Debug.Trace
 
 -- This vector ... 
 svtVectorPhi :: [ComplexT] -> [ComplexT] -> Seq Double

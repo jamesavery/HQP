@@ -1,39 +1,26 @@
 module Main where 
 
 import HQP
-import HQP.QOp
 import HQP.QOp.StatevectorSemantics
-import HQP.PrettyPrint
 
 import Programs.Qubitization
 import Programs.SVT
 import Programs.MatrixPreparation
 
-import Data.Complex (Complex((:+)),magnitude)
-import Polynomial.Roots (roots) -- From dsp package
-import Polynomial.Basic (polyadd, polysub, polymult)
-import Data.Sequence (Seq(..), (><))
-import qualified Data.Sequence as Seq
-
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import Data.Complex
-import Data.List
-import Data.Maybe
+import Data.Sequence (Seq(..))
 
-import Debug.Trace
---import qualified Data.IntMap as Seq
 
 main :: IO ()
 main = do
-    --print (show (svtVectorPhiTest()))
+    print (show (svtVectorPhiTest()))
     print (show (sqrtSVTtest()))
     print (show (evenPolySVTtest()))
 
 svtVectorPhiTest :: () -> Seq Double
 svtVectorPhiTest () =
     let 
-        p = [0,0,0.5,0,0.5]
+        p = [0,0,0.5,0,0.5] -- p(x) = 1/2x^2+1/2x^4
         (pC,qC) = qspPolys p
     in
         svtVectorPhi pC qC
@@ -55,9 +42,9 @@ sqrtSVTtest () =
         --            [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]
 
         -- Her er en ikke-diagonal matrix med singulære værdier 2 og 1
-        norm = (1/(2 * sqrt(2)) :+ 0.0)
+        normMat = (1/(2 * sqrt(2)) :+ 0.0)
         matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
-        matData = map (map (* norm)) matDataPre
+        matData = map (map (* normMat)) matDataPre
 
         matIn = fromRows matData
         matrixQubits = 1
@@ -81,8 +68,8 @@ sqrtSVTtest () =
         tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
         
         -- De singulære normeringskonstanter skal også kvadreres:
-        finalState1 = ((frobeniusNormStrict matIn)^2 :+ 0) .* tempState1
-        finalState2 = ((frobeniusNormStrict matIn)^2 :+ 0) .* tempState2
+        finalState1 = ((frobeniusNormStrict matIn)^(2 :: Int) :+ 0) .* tempState1
+        finalState2 = ((frobeniusNormStrict matIn)^(2 :: Int) :+ 0) .* tempState2
      
         -- Der projiceres
         m11 = inner  (ket [0,0]) finalState1
@@ -110,9 +97,9 @@ evenPolySVTtest () =
 
         -- Definer en matrix og sæt matrixQubits
         -- Dette er en ikke-diagonal matrix med singulære værdier 2 og 1
-        norm = (1/(2 * sqrt(2)) :+ 0.0)
+        normMat = (1/(2 * sqrt(2)) :+ 0.0)
         matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
-        matData = map (map (* norm)) matDataPre
+        matData = map (map (* normMat)) matDataPre
 
         matIn = fromRows matData
         matrixQubits = 1
@@ -136,7 +123,7 @@ evenPolySVTtest () =
         tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
         
         -- De singulære normeringskonstanter skal også kvadreres:
-        normSV = 0.5*(frobeniusNormStrict matIn)^2 + 0.5*(frobeniusNormStrict matIn)^4
+        normSV = 0.5*(frobeniusNormStrict matIn)^(2 :: Int) + 0.5*(frobeniusNormStrict matIn)^(4 :: Int)
 
         finalState1 = (normSV :+ 0) .* tempState1
         finalState2 = (normSV :+ 0) .* tempState2
@@ -162,11 +149,10 @@ evenPolySVTtest () =
 
 ----------------------------- Helpers -----------------------------------------
 -- Helper to round a single number to n decimal places
-roundTo :: RealFloat a => Int -> a -> a
-roundTo n x = fromIntegral (round (x * 10^n)) / (10^n)
+roundTo :: (RealFloat a) => Int -> a -> a
+roundTo n x = fromIntegral (round (x * 10^n) :: Integer) / (10^n)
 
--- Round both parts of a complex number
-roundComplex :: RealFloat a => Int -> Complex a -> Complex a
+roundComplex :: (RealFloat a) => Int -> Complex a -> Complex a
 roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
 
 

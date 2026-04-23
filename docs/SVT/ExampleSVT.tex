@@ -459,4 +459,96 @@ The only reason we construct a matrix this way, is for test purposes. We repeat 
     p(0.6) &= 0.24480
 \end{align*}
 
+
+%===========================================================================
+%
+% Singular vector analysis
+%
+%===========================================================================
+\newpage
+\section*{Analysis with singular vectors}
+
+
+\noindent ... and their orthogonal complements. \\
+\noindent This way wee can see the signs of the transformed singular values.\\
+\noindent All numerical values computed in Maple unless explicitly stated.
+
+\noindent The singular vectors for $A$ are (left has a tilde)
+\begin{align*}
+\psi 1 & := \left( \frac{1}{\sqrt{2}}, \frac{-1}{\sqrt{2}}, 0, 0 \right)\\
+\psi 2 & := \left( \frac{1}{\sqrt{2}}, \frac{1}{\sqrt{2}}, 0, 0 \right) \\
+\tilde{\psi}_1 & := \left( \frac{\sqrt{3}}{2}, \frac{1}{2}, 0, 0 \right)\\
+\tilde{\psi}_2 & := \left( \frac{-1}{2}, \frac{\sqrt{3}}{2}, 0, 0 \right)
+\end{align*}
+
+\noindent The orthogonal complements defined
+\begin{align*}
+\psi_1^{\perp} & := (E - \Pi) UA^{\dagger} \frac{\tilde{\psi}_1}{\sqrt{1 - 0.8^2}}  \\
+\psi_2^{\perp} & := (E - \Pi) UA^{\dagger}  \frac{\tilde{\psi}_2}{\sqrt{1 - 0.6^2}} \\
+\tilde{\psi}_1^{\perp} & := (E - \Pi)  UA  \frac{\psi 1}{\sqrt{1 - 0.8^2}} \\
+\tilde{\psi}_2^{\perp} & := (E - \Pi)  UA  \frac{\psi 2}{\sqrt{1 - 0.6^2}} 
+\end{align*}
+
+\noindent Is $A$ properly diagonalised in the singular vector basis (Only $\Pi$ and $\psi_i$ used)?\\
+(We are suppressing the zeroes)
+\begin{align*}
+\Pi U_A \Pi  & = \begin{bmatrix}
+			{\psi}_1^{\dagger} \Pi U_A \Pi \psi_1 & {\psi}_1^{\dagger} \Pi U_A \Pi \psi_2 \\ 
+			{\psi}_2^{\dagger} \Pi U_A \Pi \psi_1 & {\psi}_2^{\dagger} \Pi U_A \Pi \psi_2 \\
+		\end{bmatrix}\\
+	& = \begin{bmatrix} \frac{4}{5} & 0 \\ 0 & 0.600000000000000000000000000002 \end{bmatrix}
+\end{align*}
+
+\noindent Yes, it is the expected answer.\\
+
+\noindent Is the SVT of $A$ properly diagonalised in the singular vector basis
+\begin{align*}
+P(\Pi U_A \Pi)  & = \begin{bmatrix}
+			{\psi}_1^{\dagger} P(\Pi U_A \Pi) \psi_1 & {\psi}_1^{\dagger} P(\Pi U_A \Pi) \psi_2 \\ 
+			{\psi}_2^{\dagger} P(\Pi U_A \Pi) \psi_1 & {\psi}_2^{\dagger} P(\Pi U_A \Pi) \psi_2 \\
+		\end{bmatrix}\\
+	& = \begin{bmatrix}
+0.52480000005 & 2.828 \times 10^{-31} \\
+-7.071 \times 10^{-31} & 0.24480000005
+\end{bmatrix}
+\end{align*}
+
+\noindent Yes. It works.\\
+
+\noindent Lets try an odd polynomial
+$$
+p(x) = 2x^5 + \frac{1}{2}x^3 - \frac{3}{2}x
+$$
+
+\noindent HQPlayground code gives 
+\begin{align*}
+SVT   & = \begin{bmatrix}
+0.048274482 & 0.401784842 & 0 & 0 \\
+-0.491812459 & -0.287713157 & 0 & 0 \\
+0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0
+\end{bmatrix}
+\end{align*}
+
+\noindent In the singular vector bases ... this time we need both left and right singular vectors!
+\begin{align*}
+SVT_{SB}  & = \begin{bmatrix}
+			\tilde{\psi}_1^{\dagger} SVT \psi_1 & \tilde{\psi}_1^{\dagger} SVT \psi_2 \\ 
+			\tilde{\psi}_2^{\dagger} SVT \psi_1 & \tilde{\psi}_2^{\dagger} SVT \psi_2 \\
+		\end{bmatrix}\\
+	& = \begin{bmatrix}
+-0.2886400004 & -1.456 \times 10^{-10} \\
+-3.017 \times 10^{-10} & -0.6364800001
+\end{bmatrix}
+\end{align*}
+
+\noindent And we have 
+\begin{align*}
+p(0.8) & = -0.2886400000\\
+p(0.6) & = -0.6364800000
+\end{align*}
+
+\noindent It still works! Amazing :-)
+
+
 \end{document}

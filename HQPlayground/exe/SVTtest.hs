@@ -7,6 +7,8 @@ import Programs.Qubitization
 import Programs.SVT
 import Programs.MatrixPreparation
 
+import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
+
 import Data.Complex
 import Data.Sequence (Seq(..))
 
@@ -46,7 +48,7 @@ sqrtSVTtest () =
         matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
         matData = map (map (* normMat)) matDataPre
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matrixQubits = 1
 
         -- Lav block encoding og sæt encQubits
@@ -68,8 +70,8 @@ sqrtSVTtest () =
         tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
         
         -- De singulære normeringskonstanter skal også kvadreres:
-        finalState1 = ((frobeniusNormStrict matIn)^(2 :: Int) :+ 0) .* tempState1
-        finalState2 = ((frobeniusNormStrict matIn)^(2 :: Int) :+ 0) .* tempState2
+        finalState1 = ((norm_Frob matIn)^(2 :: Int) :+ 0) .* tempState1
+        finalState2 = ((norm_Frob matIn)^(2 :: Int) :+ 0) .* tempState2
      
         -- Der projiceres
         m11 = inner  (ket [0,0]) finalState1
@@ -79,7 +81,7 @@ sqrtSVTtest () =
 
         -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
         -- Det virker (sidst jeg prøvede :-) ... man får værdierne 4 og 1
         toLists matOut  
@@ -101,7 +103,7 @@ evenPolySVTtest () =
         matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
         matData = map (map (* normMat)) matDataPre
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matrixQubits = 1
 
         -- Lav block encoding og sæt encQubits
@@ -123,7 +125,7 @@ evenPolySVTtest () =
         tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
         
         -- De singulære normeringskonstanter skal også kvadreres:
-        normSV = 0.5*(frobeniusNormStrict matIn)^(2 :: Int) + 0.5*(frobeniusNormStrict matIn)^(4 :: Int)
+        normSV = 0.5*(norm_Frob matIn)^(2 :: Int) + 0.5*(norm_Frob matIn)^(4 :: Int)
 
         finalState1 = (normSV :+ 0) .* tempState1
         finalState2 = (normSV :+ 0) .* tempState2
@@ -136,7 +138,7 @@ evenPolySVTtest () =
 
         -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
         -- Virker det? Man burde få de singulære værdier 10 og 1 
         -- ... får 10.80000000 og 1.800000001 ... hvor komme de 0.8 fra?

@@ -143,7 +143,7 @@ permuteLocal ks p _r psi =
       rs = toRows psi
   in fromRows [ rs !! preimageRow y | y <- [0..n-1] ]
 -}
-permuteLocal :: [Int] -> Int -> Int -> Matrix ComplexT -> Matrix ComplexT
+permuteLocal :: [Int] -> Int -> Int -> CMat -> CMat
 permuteLocal ks p r psi =
   let n      = pow2 p
       inv    = invertPerm ks

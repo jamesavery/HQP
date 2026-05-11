@@ -7,6 +7,8 @@ import HQP.PrettyPrint
 import Programs.MatrixPreparation
 import Programs.MatrixArithmetic
 
+import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
+
 import Control.Monad (forM_)
 
 import Data.Vector (Vector)
@@ -56,12 +58,12 @@ sumTester () =
         -- Matrix data
         matData1 =   [[1,2,3], [4,5,6], [7,8,9]]
         matData2 =   [[10,11,12], [13,14,15],[16,17,18]]    -- sum = [[11,13,15], [17,19,21],[23,25,27]]
-        matIn1 = fromRows matData1
-        matIn2 = fromRows matData2
+        matIn1 = fromLists matData1
+        matIn2 = fromLists matData2
         
         -- Norms
-        norm1 = (frobeniusNormStrict matIn1 :+ 0)
-        norm2 = (frobeniusNormStrict matIn2 :+ 0)
+        norm1 = (norm_Frob matIn1 :+ 0)
+        norm2 = (norm_Frob matIn2 :+ 0)
 
         -- Norm QOp
         normQOp = buildRowQOpDS (V.fromList [sqrt(norm1), sqrt(norm2)])  
@@ -70,8 +72,8 @@ sumTester () =
         matData2norm = map (map (/ norm2)) [[10,11,12], [13,14,15],[16,17,18]]
         
         -- Normerede data matricer
-        matIn1norm = fromRows matData1norm
-        matIn2norm = fromRows matData2norm
+        matIn1norm = fromLists matData1norm
+        matIn2norm = fromLists matData2norm
 
         -- Sum encoding
         mat1QOp = matrixPrep matIn1norm
@@ -79,7 +81,7 @@ sumTester () =
         sumEncQOp = sumEncoding 1 normQOp mat1QOp mat2QOp
         matQOt = evalOp $ sumEncQOp
 
-        normFactor = (frobeniusNormStrict matIn1) + (frobeniusNormStrict matIn2)
+        normFactor = (norm_Frob matIn1) + (norm_Frob matIn2)
 
         finalState1 = (normFactor :+ 0) .* (apply matQOt (ket [0,0,0,0,0]))
         finalState2 = (normFactor :+ 0) .* (apply matQOt (ket [0,0,0,0,1]))
@@ -98,9 +100,9 @@ sumTester () =
         m33 = inner  (ket [0,0,0,1,0]) finalState3
  
         matOutData = [[m11,m12,m13], [m21,m22,m23], [m31,m32,m33]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
-        toLists (subMat matOut (addMat matIn1 matIn2)) --Forskellen sendes videre 
+        toLists (matOut - (matIn1 + matIn2)) --Forskellen sendes videre
 
 
 productTester :: () -> [[ComplexT]]
@@ -109,8 +111,8 @@ productTester () =
         -- Matrix data
         matData1 =   [[1,2], [3,4]]
         matData2 =   [[0,1], [1,0]]
-        matIn1 = fromRows matData1
-        matIn2 = fromRows matData2
+        matIn1 = fromLists matData1
+        matIn2 = fromLists matData2
         
         -- Product encoding
         mat1QOp = matrixPrep matIn1
@@ -118,7 +120,7 @@ productTester () =
         prodEncQOp = productEncoding 1 mat1QOp mat2QOp
         matQOt = evalOp $ prodEncQOp
 
-        normFactor = (frobeniusNormStrict matIn1 :+ 0) * (frobeniusNormStrict matIn2 :+ 0)
+        normFactor = (norm_Frob matIn1 :+ 0) * (norm_Frob matIn2 :+ 0)
 
         finalState1 = normFactor .* (apply matQOt (ket [0,0,0]))
         finalState2 = normFactor .* (apply matQOt (ket [0,0,1]))
@@ -132,12 +134,12 @@ productTester () =
 
         matOutData =   [[m11,m12], [m21,m22]]
 
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINGSFEJL FJERNES
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINGSFEJL FJERNES
     
-        matInProduct = fromRows ([[2,1], [4,3]])
+        matInProduct = fromLists ([[2,1], [4,3]])
     in 
         --finalState2
-        toLists (subMat matOut matInProduct) --Forskellen sendes videre 
+        toLists (matOut - matInProduct) --Forskellen sendes videre
 
 buildRowQOpTester :: () -> [StateT] 
 buildRowQOpTester =
@@ -176,7 +178,7 @@ matrixPrepTester2 () =
         matData =  [[ 0.6 :+ 0.0, 0.0 :+ 0.0 ], 
                     [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
         finalState1 =  (apply matQOt (ket [0,0]))
@@ -206,7 +208,7 @@ matrixPrepTester2 () =
         m44 = inner  (ket [1,1]) finalState4
  
         matOutData = [[m11,m12,m13,m14], [m21,m22,m23,m24], [m31,m32,m33,m34], [m41,m42,m43,m44]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
         toLists matOut --(subMat matOut matIn) --Forskellen sendes videre  
 
@@ -219,12 +221,12 @@ matrixPrepTester3 () =
                     [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0  ],
                     [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0  ]]
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
-        finalState1 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
-        finalState2 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,1]))
-        finalState3 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,1,0]))
+        finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
+        finalState2 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,1]))
+        finalState3 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,1,0]))
      
         m11 = inner  (ket [0,0,0,0]) finalState1
         m12 = inner  (ket [0,0,0,0]) finalState2
@@ -239,9 +241,9 @@ matrixPrepTester3 () =
         m33 = inner  (ket [0,0,1,0]) finalState3
  
         matOutData = [[m11,m12,m13], [m21,m22,m23], [m31,m32,m33]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
-        toLists (subMat matOut matIn) --Forskellen sendes videre  
+        toLists (matOut - matIn) --Forskellen sendes videre  
 
 
 
@@ -253,13 +255,13 @@ matrixPrepTester4 () =
                     [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0 ,  0.0 :+ 0.0 ],
                     [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ]]
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
-        finalState1 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
-        finalState2 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,1]))
-        finalState3 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,1,0]))
-        finalState4 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,1,1]))
+        finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
+        finalState2 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,1]))
+        finalState3 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,1,0]))
+        finalState4 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,1,1]))
      
         m11 = inner  (ket [0,0,0,0]) finalState1
         m12 = inner  (ket [0,0,0,0]) finalState2
@@ -282,9 +284,9 @@ matrixPrepTester4 () =
         m44 = inner  (ket [0,0,1,1]) finalState4
 
         matOutData = [[m11,m12,m13,m14], [m21,m22,m23,m24], [m31,m32,m33,m34],[m41,m42,m43,m44]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
-        toLists (subMat matOut matIn) --Forskellen sendes videre  
+        toLists (matOut - matIn) --Forskellen sendes videre  
 
 matrixPrepTester5 :: () -> [[ComplexT]]
 matrixPrepTester5 () = 
@@ -295,14 +297,14 @@ matrixPrepTester5 () =
                     [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ,    0.0 :+ 0.0 ],
                     [ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  0.0 :+ 6.0 ,   11.0 :+ 0.0 ]]
 
-        matIn = fromRows matData
+        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
-        finalState1 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,0]))
-        finalState2 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,1]))
-        finalState3 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,0]))
-        finalState4 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,1]))
-        finalState5 = (frobeniusNormStrict matIn :+ 0) .* (apply matQOt (ket [0,0,0,1,0,0]))
+        finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,0]))
+        finalState2 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,1]))
+        finalState3 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,0]))
+        finalState4 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,1]))
+        finalState5 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,1,0,0]))
 
         m11 = inner  (ket [0,0,0,0,0,0]) finalState1
         m12 = inner  (ket [0,0,0,0,0,0]) finalState2
@@ -335,9 +337,9 @@ matrixPrepTester5 () =
         m55 = inner  (ket [0,0,0,1,0,0]) finalState5
 
         matOutData = [[m11,m12,m13,m14,m15], [m21,m22,m23,m24,m25], [m31,m32,m33,m34,m35],[m41,m42,m43,m44,m45],[m51,m52,m53,m54,m55]]
-        matOut = fromRows (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
-        toLists (subMat matOut matIn) --Forskellen sendes videre 
+        toLists (matOut - matIn) --Forskellen sendes videre 
 
 
 -- Helper to round a single number to n decimal places

@@ -5,72 +5,21 @@ import Data.Ratio
 import System.Random(mkStdGen, randoms)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
-import Data.Complex
 import Data.List
-import Debug.Trace
 import Data.Maybe
 import Debug.Trace
 
-----------------------Local Matrix Class--------------------------
+import Numeric.LinearAlgebra (conj, toRows, toList)
+import HQP.QOp.MatrixSemantics (CMat)
 
-data MatClassic = MatClassic { 
-    rows    :: Int, 
-    cols    :: Int, 
-    content :: V.Vector ComplexT 
-} deriving (Show)
-
-toLists :: MatClassic -> [[ComplexT]]
-toLists (MatClassic r c content) = 
-    [ V.toList (V.slice (i * c) c content) | i <- [0..r-1] ]
-
-subMat :: MatClassic -> MatClassic -> MatClassic
-subMat m1 m2 = MatClassic 
-    { rows    = rows m1
-    , cols    = cols m1
-    , content = V.zipWith (-) (content m1) (content m2)
-}
-
-addMat :: MatClassic -> MatClassic -> MatClassic
-addMat m1 m2 = MatClassic 
-    { rows    = rows m1
-    , cols    = cols m1
-    , content = V.zipWith (+) (content m1) (content m2)
-}
-
-frobeniusNormStrict :: MatClassic -> Double
-frobeniusNormStrict mat = sqrt $ V.foldl' addSquaredMag 0 (content mat)
-  where
-    addSquaredMag acc (r :+ i) = acc + (r*r + i*i)
-
-fromRows :: [[ComplexT]] -> MatClassic
-fromRows [] = MatClassic 0 0 V.empty
-fromRows rs = MatClassic {
-    rows    = length rs,
-    cols    = length (head rs),
-    content = V.fromList (concat rs) -- 'concat' flattens [[a]] to [a]
-}
-
-
--- Safe indexing: returns Maybe to handle out-of-bounds
-getElem :: MatClassic -> Int -> Int -> Maybe ComplexT
-getElem (MatClassic r c vec) row col
-    | row < 0 || row >= r || col < 0 || col >= c = Nothing
-    | otherwise = Just $ vec V.! (row * c + col)
-
-
-getRows :: MatClassic -> V.Vector (V.Vector ComplexT)
-getRows mat = 
-    let r = rows mat
-        c = cols mat
-        vec = content mat
-    in V.generate r (\i -> V.slice (i * c) c vec)
-
-conjugateMat :: MatClassic -> MatClassic
-conjugateMat mat = mat { content = V.map conjugate (content mat) }
+-- | The row-prep internals below consume Data.Vector, so convert from hmatrix's
+--   storable rows once here. Remove when the row-prep is refactored too.
+getRows :: CMat -> V.Vector (V.Vector ComplexT)
+getRows = V.fromList . map (V.fromList . toList) . toRows
 
 ----------------------Matrixpreparation--------------------------
 
-unitaryV :: MatClassic -> QOp
+unitaryV :: CMat -> QOp
 unitaryV mat = 
     let rowsVec = getRows mat
         rowLen v = sqrt . V.sum $ V.map (\x -> x * conjugate x) v
@@ -80,7 +29,7 @@ unitaryV mat =
         retQOp ⊗ I
 
 -- Direct sum version
-unitaryVDS :: MatClassic -> QOp
+unitaryVDS :: CMat -> QOp
 unitaryVDS mat = 
     let rowsVec = getRows mat
         rowLen v = sqrt . V.sum $ V.map (\x -> x * conjugate x) v
@@ -90,10 +39,10 @@ unitaryVDS mat =
     in 
         retQOp ⊗ (Id numQbits)
 
-unitaryU:: MatClassic -> QOp
+unitaryU:: CMat -> QOp
 unitaryU mat =  
     let
-        rowsVec = getRows (conjugateMat mat)
+        rowsVec = getRows (conj mat)
         uBlocks = (V.map buildRowQOp rowsVec)
         numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)))
         indexedBlocks = V.indexed uBlocks
@@ -110,11 +59,11 @@ uBlockProcessStep numQbits accqOp (idx, qOp) =
 
 
 -- Direct sum version
-unitaryUDS:: MatClassic -> QOp
+unitaryUDS:: CMat -> QOp
 unitaryUDS mat =  
     let
         -- Get the row encodings
-        rowsVec = getRows (conjugateMat mat)
+        rowsVec = getRows (conj mat)
         uBlocks = (V.map buildRowQOpDS rowsVec)
         -- Pad with I_n to 2^n length
         numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)))
@@ -154,7 +103,7 @@ runUntilFinal vec
     | otherwise         = runUntilFinal (reduceStep vec)
 
 
-matrixPrep :: MatClassic -> QOp
+matrixPrep :: CMat -> QOp
 matrixPrep mat = 
     let
         -- Find U matrix

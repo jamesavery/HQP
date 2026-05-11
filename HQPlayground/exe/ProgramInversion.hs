@@ -2,9 +2,17 @@ module Main where
 
 import HQP hiding (fixpoint,simplifyPass)
 import Programs.QFT
-import qualified HQP.QOp.MatrixSemantics as MatSem 
+{-|import HQP.QOp.MatrixSemantics |-}
+import HQP.QOp.MPSSemantics
+import HQP.QOp.MatrixSemantics (CMat)
 import Numeric.LinearAlgebra(rows,norm_2)
 import Data.List (sort)
+
+-- | Evaluate a QOp under the current backend and materialise the resulting operator as a
+--   dense matrix. Under MPSSemantics this goes via the Convertible OpT CMat instance, which
+--   applies the lambda to each canonical basis ket and stacks columns. Cost O(2^n) per call.
+evalMat :: QOp -> CMat
+evalMat = to . evalOp
 
 
 {-| 
@@ -24,7 +32,7 @@ pp    = putStrLn . showOp
 {-|
    2. Evaluate the QFT program on 1, 2, 4, 10 qubits using the matrix semantics from MatrixSemantics.hs. Verify that the resulting matrices are unitary. What would happen if you tried this with 20 qubits? Use 'cabal repl ProgramInversion' to explore this interactively.
    -}
-[mqft1,mqft2,mqft3, mqft4, mqft10] = map (MatSem.evalOp . qft) [1,2,3,4,10]
+[mqft1,mqft2,mqft3, mqft4, mqft10] = map (evalMat . qft) [1,2,3,4,10]
 
 show2 :: IO ()
 show2 = do
@@ -47,6 +55,7 @@ show2 = do
 simplifyAdjoints :: QOp -> QOp
 simplifyAdjoints op = case op of
     Adjoint One                -> One
+    Adjoint (Id n)            -> Id n
     Adjoint I                 -> I
     Adjoint X                 -> X
     Adjoint Y                 -> Y
@@ -74,8 +83,8 @@ simplifyAdjoints op = case op of
 -}
 invqft n = cleanOnes $ Adjoint (qft n)
 [siqft1, siqft2, siqft3]    =  [simplifyAdjoints (invqft n) | n <- [1,2,3]]
-[mi1, mi2, mi3]             =  [MatSem.evalOp    (invqft n) | n <- [1,2,3]]
-[msi1, msi2, msi3]          =  [MatSem.evalOp (simplifyAdjoints (invqft n)) | n <- [1,2,3]]
+[mi1, mi2, mi3]             =  [evalMat    (invqft n) | n <- [1,2,3]]
+[msi1, msi2, msi3]          =  [evalMat (simplifyAdjoints (invqft n)) | n <- [1,2,3]]
 
 show4 :: IO ()
 show4 = do

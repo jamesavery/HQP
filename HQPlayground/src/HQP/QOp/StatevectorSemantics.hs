@@ -122,23 +122,23 @@ zipW :: (ComplexT -> ComplexT -> ComplexT) -> WorkT -> WorkT -> WorkT
 --------------------------------------------------------------------------------
 -- Backend-wide conventions
 --------------------------------------------------------------------------------
-type OpT = StateT -> StateT
+data OpT = OpT { opQubits :: !Int, runOp :: StateT -> StateT }
 type OpW = WorkT -> WorkT
---newtype OpT = OpT { runOpT :: StateT -> StateT }
---newtype OpW = OpW { runOpW :: WorkT -> WorkT   }
 
 instance HasQubits StateT where
   n_qubits ψ =
     case A.size ψ of
       Sz2 d _ -> ilog2 d   -- matrix view [pow2 n, r]
 
+instance HasQubits OpT where n_qubits = opQubits
+
 
 evalOp   :: QOp -> OpT
 evalStep :: (StateT, Outcomes, RNG) -> Step -> (StateT, Outcomes, RNG)
-evalProg :: Program -> StateT -> RNG -> (StateT, Outcomes, RNG) 
+evalProg :: Program -> StateT -> RNG -> (StateT, Outcomes, RNG)
 
 apply :: OpT -> StateT -> StateT
-apply f psi = f psi
+apply (OpT _ f) psi = f psi
 
 --- BACKEND-SPECIFIC IMPLEMENTATION HERE - MOVE TO BACKEND FILE LATER ---
 
@@ -499,12 +499,12 @@ evalOpMat op k r = go op
 
 -- Convention: the runtime state is a rank-n tensor of shape [2,2,..,2] (n qubits).
 -- evalOp uses only structural reshapes; it does not build global dense matrices.
-evalOp op = \psi -> 
+evalOp op = OpT (op_qubits op) $ \psi ->
   let n = op_qubits op
       f = if n /= n_qubits psi
              then error $ "Dim-mismatch between " ++ showOp op ++ " and state with n="++show (n_qubits psi)
-             else evalOpMat op n 1       
-  in 
+             else evalOpMat op n 1
+  in
     fromWork (f (toWork psi))
 
 evalStep (st, outs, rng) step = let n = n_qubits st in 
@@ -550,11 +550,11 @@ measure1 (state, outcomes, (r:rng)) k = let
           else
               (collapsed_state, outcome:outcomes, rng)
 
-measureProjection :: HasWork t => Int -- Arity of operator in qubits
-                               -> Int -- Qubit index to measure
-                               -> Int -- Measurement outcome (0 or 1)
-                                 -> (t -> t)
-measureProjection n k b = measureProjection' n 1 k (b /= 0)
+measureProjection :: Int -- Arity of operator in qubits
+                  -> Int -- Qubit index to measure
+                  -> Int -- Measurement outcome (0 or 1)
+                  -> OpT
+measureProjection n k b = OpT n (measureProjection' n 1 k (b /= 0))
 
 measureProjection' :: HasWork t => Int  -- Arity of operator in qubits
                                -> Int  -- Batch dimension
@@ -618,10 +618,23 @@ instance Convertible StateT SparseMat where
     let mat = toCMat psi
     in (to mat :: SparseMat)
 
-  from (SparseMat ((m,n), nonzeros)) 
+  from (SparseMat ((m,n), nonzeros))
     | n == 1 = let vec = HMat.assoc (fromInteger m,1) 0 [((fromInteger i, fromInteger j), v) | ((i,j),v) <- nonzeros]
                in fromCMat vec
     | otherwise = error "Statevector StateT from SparseMat: only column vectors supported"
+
+-- | Materialize an `OpT` as a dense matrix by applying it to each canonical basis ket and
+--   assembling the resulting column vectors. The Statevector backend is exact (no truncation
+--   to thread through), so this is just the operator's dense matrix in the basis. Intended
+--   for small n — costs O(2^n) state-vector evaluations.
+opToDenseMat :: OpT -> CMat
+opToDenseMat (OpT n f) =
+  let columns = [ toCMat (f (ket (toBits' n j))) | j <- [0 .. pow2 n - 1] ]
+  in HMat.fromBlocks [columns]
+
+instance Convertible OpT CMat where
+  to     = opToDenseMat
+  from _ = error "Convertible OpT CMat: from is not implemented; build OpT via evalOp"
 
 --------------------------------------------------------------------------------
 -- Dagger (structural)

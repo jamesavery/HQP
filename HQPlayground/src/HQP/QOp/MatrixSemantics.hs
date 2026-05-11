@@ -267,4 +267,12 @@ instance Convertible CMat SparseMat where
     to mat = sparseMat mat
 
     from _ = error "CMat from SparseMat: not implemented yet."
+
+-- | Identity Convertible instance. Exists so backend-agnostic user code can write
+--   `to (evalOp op) :: CMat` uniformly across backends — in MatrixSemantics OpT is already
+--   CMat, so this is a no-op; in lambda backends (MPS, Statevector) the same call dispatches
+--   to a canonical-basis materialization.
+instance Convertible CMat CMat where
+    to   = id
+    from = id
         

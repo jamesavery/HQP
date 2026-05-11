@@ -4,10 +4,10 @@
 {-# LANGUAGE BangPatterns #-}
 
 module HQP.QOp.MPSSemantics
-  ( Site(..), MPS(..), StateT, WorkT
+  ( Site(..), MPS(..), StateT, WorkT, OpT(..)
   , Interval(..)
   , Trunc(..), EvalCfg(..), defaultCfg, ProfileCfg(..)
-  , ket, ketW, toSparseMat
+  , ket, ketW, toSparseMat, mpsToDenseVec, opToDenseMat
   , measureProjection, measure1
   , apply, evalStep, evalProg
   , evalOp, evalOpAtW
@@ -52,11 +52,11 @@ import GHC.Stack (HasCallStack, callStack, prettyCallStack)
 
 type StateT = MPS
 type WorkT  = MPS
-type OpT    = StateT -> StateT
+data OpT    = OpT { opQubits :: !Int, runOp :: MPS -> MPS }
 type CVec   = H.Vector ComplexT
 
-apply :: (t -> t) -> t -> t
-apply f x = f x
+apply :: OpT -> StateT -> StateT
+apply (OpT _ f) x = f x
 
 -- MPS representation
 data Interval = Ival !Int !Int deriving (Show,Eq)
@@ -84,6 +84,7 @@ nSites :: MPS -> Int
 nSites = V.length . sites
 
 instance HasQubits MPS where n_qubits = nSites
+instance HasQubits OpT where n_qubits = opQubits
 
 class HasWork t where
   toWork   :: t -> WorkT
@@ -549,16 +550,46 @@ instance Convertible WorkT SparseMat where
 
 
 instance Convertible StateT CMat where
-  to psi = 
-    let (SparseMat ((m,_), nonzeros)) = to psi :: SparseMat
-        n = integerlog2 m
-        kets  = [a .* (MS.ket $ toBits' n k) | ((k,_),a) <- nonzeros] :: [CMat]
-    in
-      foldr1 (.+) kets
-           
-  from psimat = 
-    let psi_sparse = MS.sparseMat psimat 
+  to   = mpsToDenseVec
+  from psimat =
+    let psi_sparse = MS.sparseMat psimat
     in from psi_sparse :: StateT
+
+-- | Contract an MPS into a dense (2^n × 1) column vector, indexed by logical bits MSB-first
+--   (matching MatrixSemantics' ket convention). Faithfully reflects the MPS's stored
+--   amplitudes — does not modify the MPS or add any truncation beyond what is already in it.
+--   O(2^n · χ²); intended for small n.
+mpsToDenseVec :: MPS -> CMat
+mpsToDenseVec mps =
+  let n = nSites mps
+      step !t p =
+        let Site x0 x1 = sites mps ! p
+            t0 = t .*. H.tr' x0
+            t1 = t .*. H.tr' x1
+        in t0 H.=== t1
+      vPhys = H.scale (scalar mps) $
+                foldl' step ((1><1) [1:+0]) [n-1, n-2 .. 0]
+      l2p   = log2phys mps
+      logToPhys !iLog = foldl' (.|.) 0
+        [ if testBit iLog (n-1-q) then 1 `shiftL` (n-1-(l2p ! q)) else 0
+        | q <- [0..n-1] ]
+      dim   = pow2 n
+  in H.asColumn $ H.fromList
+       [ vPhys `atIndex` (logToPhys iLog, 0) | iLog <- [0 .. dim-1] ]
+
+-- | Materialize an `OpT` as a dense matrix by applying it to each canonical basis ket
+--   prepared with the given EvalCfg, then assembling the resulting column vectors. The cfg
+--   propagates into the lambda's internal MPS operations, so the matrix reflects the
+--   operator's actual truncation behavior under that cfg. Intended for small n.
+opToDenseMat :: EvalCfg -> OpT -> CMat
+opToDenseMat cfg' (OpT n f) =
+  let mkKet bits = (ketW bits) { cfg = cfg' }
+      cols       = [ mpsToDenseVec (f (mkKet (toBits' n j))) | j <- [0 .. pow2 n - 1] ]
+  in H.fromBlocks [cols]
+
+instance Convertible OpT CMat where
+  to     = opToDenseMat defaultCfg
+  from _ = error "Convertible OpT CMat: from is not implemented; build OpT via evalOp"
 
 -- measurement
 frob2 :: CMat -> Double
@@ -582,16 +613,13 @@ projectCenter p b st =
         , dirty = Just (singletonIval p)
         }
 
-measureProjection :: (HasCallStack, HasWork t) => Int -> Int -> Int -> (t -> t)
-measureProjection _arity k out t0 =
-  let st0 = compressIfDirty (toWork t0)
+measureProjection :: HasCallStack => Int -> Int -> Int -> OpT
+measureProjection arity k out = OpT arity $ \t0 ->
+  let st0 = compressIfDirty t0
       p   = log2phys st0 V.! k
       st2 = projectCenter p (out==1) st0
       st3 = clearDirty (compressRange (singletonIval p) st2)
-  in
-    --trace ("measureProjection on qubit " ++ show k ++ " to " ++ show out ++ 
-    --       " of state " ++ showState st0 ++ "\n = " ++ showState st3) $ 
-    fromWork st3
+  in st3
 
 
   
@@ -633,7 +661,7 @@ supportInterval st base op =
 
 -- evaluator
 evalOp :: QOp -> OpT
-evalOp op = evalOpAtW 0 op 
+evalOp op = OpT (op_qubits op) (evalOpAtW 0 op)
   
 
 evalOpAtW :: HasCallStack => Int -> QOp -> WorkT -> WorkT

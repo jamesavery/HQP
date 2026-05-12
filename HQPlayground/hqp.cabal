@@ -89,6 +89,18 @@ common exe-common
       hqp:core
   ghc-options: -Wall
 
+common test-common
+  hs-source-dirs: test
+  build-depends:
+      base,
+      hmatrix,
+      hqp:core,
+      tasty,
+      tasty-hunit,
+      tasty-quickcheck,
+      QuickCheck
+  ghc-options: -Wall
+
 executable NoCloning
   import: exe-common
   main-is: NoCloning.hs
@@ -153,10 +165,11 @@ executable Qubitizationtest
   main-is: Qubitizationtest.hs
 
 executable BackendValidation
-  import: exe-common
+  import: test-common
   main-is: BackendValidation.hs
+
+executable MatrixPrepTest
+  import: test-common
   build-depends:
-    tasty,
-    tasty-hunit,
-    tasty-quickcheck,
-    QuickCheck
+    vector
+  main-is: MatrixPrepTest.hs

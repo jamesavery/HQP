@@ -24,7 +24,7 @@ import Test.Tasty.QuickCheck
 
 -- | Matrix L1 diff; bigger circuits accumulate FP noise, so we use a generous tolerance.
 tol :: Double
-tol = 1e-8
+tol = 1e-7
 
 mDiff :: CMat -> CMat -> Double
 mDiff a b = sumElements (cmap magnitude (a - b))

@@ -69,8 +69,7 @@ unitaryUDS mat =
         numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)))
         uBlocksPadded = padToPowerOf2 numQbits (Id numQbits) uBlocks
         -- Build the direct sums
-        dsQOp = runUntilFinal uBlocksPadded
-        --dsQOp = V.foldl1 processPair uBlocksPadded
+        dsQOp = foldBalanced uBlocksPadded DirectSum
 
         -- Building the SWAP
         swap = if numQbits == 1 then Permute [1,0] else Permute ([numQbits .. 2*(numQbits) - 1 ] ++ [0 .. (numQbits - 1)])
@@ -83,25 +82,6 @@ padToPowerOf2 numQbits paddingObj vec
     | otherwise   = vec V.++ V.replicate ((2^numQbits) - len) paddingObj
   where
     len  = V.length vec
-
--- 1. Operation for intermediate pairs
-processPair :: QOp -> QOp -> QOp
-processPair x y = DirectSum x y
-
-reduceStep :: V.Vector QOp -> V.Vector QOp
-reduceStep vec = V.generate halfSize $ \i ->
-    let op1 = vec V.! (2 * i)
-        op2 = vec V.! (2 * i + 1)
-    in processPair op1 op2
-  where
-    halfSize = V.length vec `div` 2
-
--- 3. The recursive driver
-runUntilFinal :: V.Vector QOp -> QOp
-runUntilFinal vec
-    | V.length vec == 2 = processPair (vec V.! 0) (vec V.! 1) 
-    | otherwise         = runUntilFinal (reduceStep vec)
-
 
 matrixPrep :: CMat -> QOp
 matrixPrep mat = 
@@ -149,20 +129,22 @@ createRotationsDS :: Int -> [V.Vector ComplexT] -> QOp
 createRotationsDS level vs
     | length vs == 1 = (createQOpDS level (head vs) ⊗ (Id level))
     | otherwise =
-        let (pairLenLst, accQOp) = case uncons vs of
-                Just (first, rest) -> 
-                    -- Initialize with the first element
-                    let iniVec = updateInnerNodeVector first V.empty
-                        iniQOp = createQOpDS level first
-                    in foldl (\(accVec, qOp) v -> 
-                                processStepDS level (accVec, qOp) v) 
-                             (iniVec, iniQOp) 
-                             rest
-
-                Nothing -> error "createRotationsDS: list was unexpectedly empty."
-        
-        -- Recursive call and composition
-        in (accQOp ⊗ (Id level)) <> createRotationsDS (level + 1) (splitList pairLenLst)  
+        let -- One 1-qubit leaf gate per chunk. splitList can produce a non-power-of-2
+            -- number of chunks (e.g. length-5 input → 3 chunks); pad the leaf array with
+            -- Id 1 placeholders so foldBalanced can fold a balanced binary DirectSum
+            -- tree. The placeholder branches correspond to indices with zero amplitude.
+            leafOps    = V.fromList (map (createQOpDS level) vs)
+            nQubits    = ceiling (logBase 2 (fromIntegral (V.length leafOps)) :: Double)
+            leafOpsPad = padToPowerOf2 nQubits I leafOps
+            accQOp     = foldBalanced leafOpsPad DirectSum
+            -- Inner-node norms for the next level of the rotation tree.
+            pairLenLst = V.fromList (map pairNorm vs)
+        in (accQOp ⊗ (Id level)) <> createRotationsDS (level + 1) (splitList pairLenLst)
+  where
+    pairNorm pair =
+        let val0 = pair V.! 0
+            val1 = fromMaybe 0 (pair V.!? 1)
+        in sqrt (val0 * conjugate val0 + val1 * conjugate val1)
 
 -- Direct Sum Version
 processStepDS :: Int -> (Vector ComplexT, QOp) -> Vector ComplexT -> (Vector ComplexT, QOp)
@@ -240,22 +222,25 @@ createQOpDS level pairVector
 
 
 calculateComplexGate :: Double -> Double -> Double -> Double -> QOp
-calculateComplexGate r1 phi1 r2 phi2 
+calculateComplexGate r1 phi1 r2 phi2
     | abs r1 < 1e-9 && abs r2 < 1e-9 = I
     | otherwise =
         let phi    = toRational $   (phi2 - phi1)/pi
             lambda = toRational $  -(phi1 + phi2)/pi
-            theta  = toRational $ if r1 == 0 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2)) 
-        in 
-            (R Z (-phi)) ∘ (R Y (-theta)) ∘ (R Z (-lambda))
+            theta  = toRational $ if r1 == 0 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2))
+        in
+            -- Convention: R Y θ |0⟩ = cos(πθ/2)|0⟩ + sin(πθ/2)|1⟩. Positive θ encodes a
+            -- positive amplitude on |1⟩. (The angles here used to be negated to compensate
+            -- for an old sign bug in R that has since been fixed.)
+            (R Z phi) ∘ (R Y theta) ∘ (R Z lambda)
 
 calculateRealGate :: Double -> Double -> QOp
 calculateRealGate r1 r2
     | abs r1 < 1e-9 && abs r2 < 1e-9 = I
     | otherwise =
-        let theta = toRational $ if abs r1 < 1e-9 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2)) 
-        in 
-            R Y (-theta)
+        let theta = toRational $ if abs r1 < 1e-9 then 1 else (2/pi) * acos (r1 / sqrt (r1**2 + r2**2))
+        in
+            R Y theta
 
 toBitString :: Int -> Int -> [Int]
 toBitString n bitStrLen
@@ -286,7 +271,7 @@ condMultQb bitPattern fct initialOp =
     foldr (\bit op -> fct bit op) initialOp bitPattern
 
 ----------------- Helper funcs ----------
--- Burde nok slås sammen med koden ved runUntilFinal
+-- Burde nok slås sammen med koden ved foldBalanced
 -- Det er en træopbyggende rekursiv metode der bør abstraheres
 
 splitList :: V.Vector ComplexT -> [V.Vector ComplexT]

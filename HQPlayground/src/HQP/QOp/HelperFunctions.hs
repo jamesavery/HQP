@@ -33,8 +33,6 @@ op_support :: QOp -> S.Set Nat
 op_support op = let
     shift ns k   = S.map (+k) ns
     union xs ys  = S.union xs ys
-    permute_support     π sup = S.fromList [ i | (i,j) <- zip [0..] π, S.member j sup ]
-    permute_support_inv π sup = S.fromList [ j | (i,j) <- zip [0..] π, S.member i sup ]
   in case op of
   Id _          -> S.empty
   Phase _       -> S.empty
@@ -43,8 +41,10 @@ op_support op = let
   C a           -> S.insert 0 ((op_support a) `shift` 1)
   Tensor a b    -> (op_support a) `union` ((op_support b) `shift` (op_qubits a))
   DirectSum a b -> S.insert 0 ((op_support a `union` op_support b) `shift` 1)
-  Compose (Permute ks) b -> permute_support ks (op_support b)
-  Compose a (Permute ks) -> permute_support_inv ks (op_support a)
+  -- Compose's support is the union of its operands'. (Earlier special cases for
+  -- Permute were unsound — e.g. `Compose (Permute ks) (Id n)` returned ∅ instead of
+  -- permSupport ks, because the bits Permute moves count toward support even when the
+  -- other side has empty support.)
   Compose a b   -> union (op_support a) (op_support b)
   Adjoint a     -> op_support a
   Permute ks    -> S.fromList $ permSupport ks
@@ -193,6 +193,21 @@ firstBelow cutoff s = go 0 (G.length s)
       | otherwise          = go (mid+1) hi
       where
         !mid = (lo+hi) `div` 2   
+
+
+-- | Fold a binary operator over a vector via a balanced binary-tree shape
+--   rather than the linear left/right chain of `foldl1`/`foldr1`. Length must
+--   be a positive power of 2. Useful when the operator's result-arity grows
+--   with fold depth (e.g. `foldBalanced v DirectSum` has depth log₂(length v)
+--   instead of length v − 1). No equivalent exists in the Haskell base
+--   libraries; `mconcat`/`foldMap` and friends use a linear fold by default.
+foldBalanced :: V.Vector t -> (t -> t -> t) -> t
+foldBalanced v f = go v
+  where
+    go xs
+      | V.length xs == 1 = V.head xs
+      | otherwise        = go (V.generate (V.length xs `div` 2) $ \i ->
+                                  f (xs V.! (2*i)) (xs V.! (2*i+1)))
 
 
 -- HELPER DATA STRUCTURES

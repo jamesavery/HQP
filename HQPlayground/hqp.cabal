@@ -167,9 +167,15 @@ executable Qubitizationtest
 executable BackendValidation
   import: test-common
   main-is: BackendValidation.hs
+  other-modules: Generators
 
 executable MatrixPrepTest
   import: test-common
   build-depends:
     vector
   main-is: MatrixPrepTest.hs
+
+executable AlgebraTest
+  import: test-common
+  main-is: AlgebraTest.hs
+  other-modules: Generators

@@ -9,6 +9,9 @@ module HQP.QOp.MPSSemantics
   , Trunc(..), EvalCfg(..), defaultCfg, ProfileCfg(..)
   , ket, ketW, toSparseMat, mpsToDenseVec, opToDenseMat
   , measureProjection, measure1, sampleAll
+  , isDiagonalSite, isDiagonalMPS, siteVec
+  , sampleAllDiagVecs, measureAllDiagVecs
+  , sampleAllDiag, measureAllDiag
   , apply, evalStep, evalProg
   , evalOp, evalOpAtW
   , dagger
@@ -746,6 +749,208 @@ sampleAllW psi0 rng0
                     v'  = if bit then u1 else u0
                     q   = phys2log psi ! p
                 in (v', rs, (q, bit) : acc)
+
+------------------------------------------------------------------------
+-- Diagonal-MPS specialization
+------------------------------------------------------------------------
+-- A "diagonal-core" MPS represents a sum of χ separable terms:
+--     |ψ⟩ = Σ_α ⊗_p (f_p(0,α) |0⟩ + f_p(1,α) |1⟩)
+-- In the standard MPS chain, this means boundary sites are 1×χ / χ×1
+-- (row/column vector pairs) and internal sites are χ×χ diagonal in the
+-- bond index. Sampling collapses to O(n·χ²) — see perfect-sampling.tex
+-- section "Diagonal-MPS specialization".
+--
+-- Two entry-point layers:
+--   * Raw (sampleAllDiagVecs / measureAllDiagVecs) — takes per-site
+--     (f_p(0,·), f_p(1,·)) vector pairs directly. No χ² storage required
+--     by the caller; only O(χ²) working memory for the R-chain.
+--   * MPS wrappers (sampleAllDiag / measureAllDiag) — assert
+--     isDiagonalMPS, extract via siteVec, run the raw entry, remap
+--     outcomes to logical order via phys2log.
+
+-- | Per-site vector pair (f_p(0,·), f_p(1,·)) extracted from a Site,
+--   handling the three shape cases uniformly.
+siteVec :: Site -> (CVec, CVec)
+siteVec (Site x0 x1)
+  | rows x0 == 1 = (H.flatten x0, H.flatten x1)
+  | cols x0 == 1 = (H.flatten x0, H.flatten x1)
+  | otherwise    = (H.takeDiag x0, H.takeDiag x1)
+
+-- | A site is diagonal-or-boundary if it's 1×χ, χ×1, or square with all
+--   off-diagonals below @eps@ in magnitude.
+isDiagonalSite :: Double -> Site -> Bool
+isDiagonalSite eps (Site x0 x1) =
+  let isDiag m =
+        let r = rows m; c = cols m
+            offDiagSmall =
+              and [ magnitude (m `atIndex` (i,j)) < eps
+                  | i <- [0 .. r-1], j <- [0 .. c-1], i /= j ]
+        in (r == 1) || (c == 1) || (r == c && offDiagSmall)
+  in isDiag x0 && isDiag x1
+
+-- | Whole-MPS predicate. Requires that boundary sites have the correct
+--   shape and all internal sites are diagonal. Uses @tol (cfg psi)@.
+isDiagonalMPS :: MPS -> Bool
+isDiagonalMPS psi =
+  let n      = nSites psi
+      sV     = sites psi
+      eps    = tol (cfg psi)
+      sLeft  = sV ! 0
+      sRight = sV ! (n-1)
+  in case n of
+       0 -> True
+       1 -> True   -- 1×1
+       _ -> rows (a0 sLeft) == 1
+         && cols (a0 sRight) == 1
+         && all (\p -> isDiagonalSite eps (sV ! p)) [1 .. n-2]
+
+-- | G_p[α,β] = Σ_s f_p(s,α)* · f_p(s,β)  — Hermitian, rank ≤ 2.
+--   (Note conjugation on the *first* index: this is what falls out of
+--   |⟨s|ψ⟩|² when integrating out one site.)
+gMatrix :: (CVec, CVec) -> CMat
+gMatrix (v0, v1) =
+  let outerC u = H.outer (cmap conjugate u) u
+  in outerC v0 + outerC v1
+
+-- | Right-chain @R[p][α,β] = ∏_{q > p} G_q[α,β]@, computed as elementwise
+--   products. @R[n-1]@ is the all-ones χ×χ matrix.
+buildRChain :: Int -> V.Vector (CVec, CVec) -> V.Vector CMat
+buildRChain chi vecs =
+  let n     = V.length vecs
+      jOnes = H.konst (1:+0) (chi, chi)
+      gs    = V.map gMatrix vecs    -- G_0 .. G_{n-1}
+      -- R[p] = G[p+1] * R[p+1] elementwise (Matrix Num instance is elementwise).
+      go p acc | p < 0     = acc
+               | otherwise = let r' = if p == n-1 then jOnes
+                                                  else (gs ! (p+1)) * (acc ! (p+1))
+                             in go (p-1) (acc V.// [(p, r')])
+  in go (n-1) (V.replicate n jOnes)
+
+-- | Sample all qubits from a diagonal-MPS given only per-site vector pairs.
+--   Outcomes are returned head-most-recent, matching @Measure [0..n-1]@.
+--   Cost: O(n · χ²); working memory: O(n · χ²) for the R-chain.
+sampleAllDiagVecs :: HasCallStack
+                  => V.Vector (CVec, CVec)
+                  -> RNG
+                  -> (Outcomes, RNG)
+sampleAllDiagVecs vecs rng0
+  | n == 0    = ([], rng0)
+  | otherwise =
+      let chi    = H.size (fst (vecs ! 0))
+          rChain = buildRChain chi vecs
+          lInit  = H.konst (1:+0) chi
+          (_, rng', bitsRev) =
+            foldl' (step rChain) (lInit, rng0, []) [0 .. n-1]
+      in (reverse bitsRev, rng')
+  where
+    n = V.length vecs
+    -- one Born-rule decision per site; uses chi from L's current size.
+    step :: V.Vector CMat
+         -> (CVec, RNG, [Bool])
+         -> Int
+         -> (CVec, RNG, [Bool])
+    step _ (_, [],   _)   _ = error "sampleAllDiagVecs: empty RNG"
+    step rChain (l, r:rs, acc) p =
+      let (f0, f1) = vecs ! p
+          h0  = l * f0           -- elementwise (Vector Num is elementwise)
+          h1  = l * f1
+          r_p = rChain ! p
+          w0  = realPart (dot h0 (r_p #> h0))
+          w1  = realPart (dot h1 (r_p #> h1))
+          tot = w0 + w1
+      in if tot < 1e-300
+           then error "sampleAllDiagVecs: prob ~ 0"
+           else let bit = r * tot >= w0
+                    l'  = if bit then h1 else h0
+                in (l', rs, bit : acc)
+
+-- | Projective measure-all on a diagonal-MPS given vector pairs. Returns:
+--     * post-measurement vectors (unchosen branch zeroed per site),
+--     * renormalization factor 1/|⟨s|ψ⟩| (multiply into MPS scalar),
+--     * outcomes (head-most-recent),
+--     * remaining RNG.
+--   The post-measurement vectors remain in the diagonal class.
+measureAllDiagVecs :: HasCallStack
+                   => V.Vector (CVec, CVec)
+                   -> RNG
+                   -> ( V.Vector (CVec, CVec)
+                      , Complex Double
+                      , Outcomes
+                      , RNG )
+measureAllDiagVecs vecs rng0
+  | n == 0    = (vecs, 1:+0, [], rng0)
+  | otherwise =
+      let chi    = H.size (fst (vecs ! 0))
+          rChain = buildRChain chi vecs
+          zerof  = H.konst (0:+0) chi
+          lInit  = H.konst (1:+0) chi
+          (lFinal, rng', bitsRev, vecsOut) =
+            foldl' (step rChain zerof) (lInit, rng0, [], vecs) [0 .. n-1]
+          amp     = H.sumElements lFinal      -- ⟨s|ψ_internal⟩
+          renorm  = (1 / magnitude amp) :+ 0
+      in (vecsOut, renorm, reverse bitsRev, rng')
+  where
+    n = V.length vecs
+    step :: V.Vector CMat
+         -> CVec
+         -> (CVec, RNG, [Bool], V.Vector (CVec, CVec))
+         -> Int
+         -> (CVec, RNG, [Bool], V.Vector (CVec, CVec))
+    step _ _ (_, [], _, _) _ = error "measureAllDiagVecs: empty RNG"
+    step rChain zerof (l, r:rs, acc, vs) p =
+      let (f0, f1) = vs ! p
+          h0  = l * f0
+          h1  = l * f1
+          r_p = rChain ! p
+          w0  = realPart (dot h0 (r_p #> h0))
+          w1  = realPart (dot h1 (r_p #> h1))
+          tot = w0 + w1
+      in if tot < 1e-300
+           then error "measureAllDiagVecs: prob ~ 0"
+           else let bit = r * tot >= w0
+                    l'  = if bit then h1 else h0
+                    vp' = if bit then (zerof, f1) else (f0, zerof)
+                in (l', rs, bit : acc, vs V.// [(p, vp')])
+
+-- | Sample-only all-qubit measurement specialized to diagonal MPS.
+--   Asserts diagonality on entry. Outcomes returned in logical order.
+sampleAllDiag :: HasCallStack => StateT -> RNG -> (Outcomes, RNG)
+sampleAllDiag psi rng
+  | not (isDiagonalMPS psi) = error "sampleAllDiag: state is not diagonal"
+  | otherwise =
+      let vecs           = V.map siteVec (sites psi)
+          (physOuts, rng') = sampleAllDiagVecs vecs rng
+          n              = nSites psi
+          bits = V.replicate n False V.//
+                   [ (phys2log psi ! p, b) | (p, b) <- zip [0..] physOuts ]
+          outs = [ bits ! k | k <- [0 .. n-1] ]
+      in (outs, rng')
+
+-- | Projective all-qubit measurement on a diagonal MPS. Returns the
+--   post-measurement state (still diagonal) with global scalar updated to
+--   keep ψ normalised.
+measureAllDiag :: HasCallStack => StateT -> RNG -> (StateT, Outcomes, RNG)
+measureAllDiag psi rng
+  | not (isDiagonalMPS psi) = error "measureAllDiag: state is not diagonal"
+  | otherwise =
+      let vecs                       = V.map siteVec (sites psi)
+          (vecsOut, renorm, physOuts, rng') = measureAllDiagVecs vecs rng
+          n        = nSites psi
+          newSites = V.zipWith updateSiteFromVec (sites psi) vecsOut
+          psi'     = psi { sites = newSites
+                         , scalar = renorm * scalar psi
+                         }
+          bits = V.replicate n False V.//
+                   [ (phys2log psi ! p, b) | (p, b) <- zip [0..] physOuts ]
+          outs = [ bits ! k | k <- [0 .. n-1] ]
+      in (psi', outs, rng')
+
+-- | Build a Site from a (CVec, CVec) given an original Site (for shape).
+updateSiteFromVec :: Site -> (CVec, CVec) -> Site
+updateSiteFromVec (Site origA0 _) (v0, v1)
+  | rows origA0 == 1 = Site (H.asRow v0)    (H.asRow v1)
+  | cols origA0 == 1 = Site (H.asColumn v0) (H.asColumn v1)
+  | otherwise        = Site (H.diag v0)     (H.diag v1)
 
 -- support interval (physical hull) from op_support
 supportInterval :: WorkT -> Int -> QOp -> Interval

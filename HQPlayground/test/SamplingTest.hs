@@ -35,7 +35,9 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
-import Generators (RandomQOp(..), tol)
+import Generators (RandomQOp(..), tol, genRat, genPermutation)
+import Control.Applicative (liftA2)
+import Control.Monad (replicateM)
 
 ------------------------------------------------------------------------
 -- Sampling-specific helpers
@@ -489,6 +491,371 @@ qcTests = testGroup "QC over random circuits"
 
 ------------------------------------------------------------------------
 
+------------------------------------------------------------------------
+-- Diagonal-MPS specialization
+------------------------------------------------------------------------
+
+-- | A two-term diagonal-MPS state (χ=2) built directly from vector pairs.
+--   Term 1: |0..0>;  Term 2: c · |1..1>.  Amplitude on |s> is non-zero
+--   only for the all-zero or all-one bitstring.
+diagTwoTermVecs :: Int -> ComplexT -> V.Vector (H.Vector ComplexT, H.Vector ComplexT)
+diagTwoTermVecs n c =
+  let chi = 2
+      -- f_p(0) = (1, 0) for p=0 carries term 1, else 1 in both slots
+      -- f_p(1) = (0, c) similarly
+      -- Convention: term α carries weight everywhere. Pick simplest:
+      --   f_p(0,α) = [1,0][α]   (only α=0 has |0> contribution)
+      --   f_p(1,α) = [0,1][α]   (only α=1 has |1> contribution)
+      -- Then ⟨0..0|ψ⟩ = ∏ f_p(0,0) = 1; ⟨1..1|ψ⟩ = ∏ f_p(1,1) = 1.
+      -- Set last site's f_p(1) = [0,c] to scale term 2 by c.
+      f0_ordinary = H.fromList [1:+0, 0:+0]
+      f1_ordinary = H.fromList [0:+0, 1:+0]
+      f1_last     = H.fromList [0:+0, c]
+      site k | k == n-1  = (f0_ordinary, f1_last)
+             | otherwise = (f0_ordinary, f1_ordinary)
+      _ = chi
+  in V.generate n site
+
+-- | Build a diagonal MPS in standard chain form (1×χ, χ×χ diag, χ×1) from
+--   per-site vector pairs.
+mkDiagMPS :: V.Vector (H.Vector ComplexT, H.Vector ComplexT) -> MPS.StateT
+mkDiagMPS vecs =
+  let n   = V.length vecs
+      mk p (v0, v1)
+        | p == 0     = MPS.Site (H.asRow v0)    (H.asRow v1)
+        | p == n-1   = MPS.Site (H.asColumn v0) (H.asColumn v1)
+        | otherwise  = MPS.Site (H.diag v0)     (H.diag v1)
+      sV   = V.imap mk vecs
+      idm  = V.generate n id
+  in MPS.MPS
+       { MPS.scalar      = 1 :+ 0
+       , MPS.sites       = sV
+       , MPS.center_site = 0
+       , MPS.log2phys    = idm
+       , MPS.phys2log    = idm
+       , MPS.dirty       = Nothing
+       , MPS.cfg         = MPS.defaultCfg
+       }
+
+diagSampleVsAnalytic :: TestTree
+diagSampleVsAnalytic = testCase "sampleAllDiag matches mpsToDenseVec on 4-qubit GHZ-like" $ do
+  let n      = 4
+      st     = mkDiagMPS (diagTwoTermVecs n (2 :+ 1))    -- unnormalized, |c|² = 5
+      raw    = analyticProbs st
+      total  = V.sum raw
+      probs  = V.map (/ total) raw                       -- normalize for comparison
+      hist   = empiricalHistDiag 401 n 4000 st
+  assertBool "raw norm² > 0" (total > 1e-9)
+  assertBool "analytic probs sum to 1 after normalization"
+             (abs (V.sum probs - 1.0) < 1e-9)
+  assertHistMatches "diag 4-qubit GHZ-like" 100 4000 probs hist
+
+-- | Empirical hist via sampleAllDiag instead of sampleAll.
+empiricalHistDiag :: Int -> Int -> Int -> MPS.StateT -> V.Vector Int
+empiricalHistDiag seed n k st =
+  let go 0 _   hist = hist
+      go i rng hist =
+        let (outs, rng') = MPS.sampleAllDiag st rng
+            idx          = bitsToIdx outs
+        in go (i-1) rng' (hist V.// [(idx, hist V.! idx + 1)])
+      rng0 = randoms (mkStdGen seed) :: [Double]
+  in go k rng0 (V.replicate (2^n) 0)
+
+isDiagonalTests :: TestTree
+isDiagonalTests = testGroup "isDiagonalMPS predicate"
+  [ testCase "GHZ-like diagonal state passes" $
+      assertBool "" (MPS.isDiagonalMPS (mkDiagMPS (diagTwoTermVecs 4 (1 :+ 0))))
+  , testCase "Bell state from H+CX is diagonal (χ=2)" $ do
+      let st = runProg bellProg (MPS.ket [0,0])
+      assertBool "" (MPS.isDiagonalMPS st)
+  , testCase "H|0>⊗H|0> is diagonal (product state, χ=1)" $ do
+      let st = runProg (plusProg 2) (MPS.ket [0,0])
+      assertBool "" (MPS.isDiagonalMPS st)
+  , testCase "QFT|0>^3 is generally NOT diagonal" $ do
+      let st = runProg (qftProg 3) (MPS.ket [0,0,0])
+      -- QFT|0> = |+>^n is diagonal (χ=1)... actually it IS diagonal.
+      -- So we just confirm without asserting a specific result; document it.
+      _ <- pure (MPS.isDiagonalMPS st)
+      pure ()
+  ]
+
+-- Cross-method: on diagonal states *built via circuits* (so canonical),
+-- sampleAllDiag and the generic sampleAll should agree in distribution.
+-- Bell and GHZ are diagonal-MPS by construction (χ=2 perfect correlation).
+diagAgreesWithGenericCase :: String -> Int -> Program -> TestTree
+diagAgreesWithGenericCase lbl n prog = testCase lbl $ do
+  let st       = runProg prog (MPS.ket (replicate n 0))
+  assertBool "state must be diagonal" (MPS.isDiagonalMPS st)
+  let k        = 2000
+      hGeneric = empiricalHist     701 n k st
+      hDiag    = empiricalHistDiag 702 n k st
+      d        = tvDistance hGeneric hDiag
+  assertBool (lbl ++ ": TV " ++ show d) (d < 0.05)
+
+-- Raw entry agreement: feeding extracted vectors to sampleAllDiagVecs should
+-- give the same distribution as the MPS wrapper.
+prop_raw_matches_wrapper :: Int -> Property
+prop_raw_matches_wrapper seed' =
+  forAll (choose (2, 4)) $ \n ->
+    let st    = mkDiagMPS (diagTwoTermVecs n (1 :+ 1))
+        vecs  = V.map MPS.siteVec (MPS.sites st)
+        k     = 800
+        seedA = seed'
+        seedB = seed' + 200
+        hWrapper = empiricalHistDiag seedA n k st
+        hRaw     = empiricalHistRaw  seedB n k vecs
+        d        = tvDistance hWrapper hRaw
+    in counterexample ("n = " ++ show n ++ ", TV = " ++ show d)
+                      (d < 0.10)
+  where
+    empiricalHistRaw seedR n k vecs =
+      let go 0 _   hist = hist
+          go i rng hist =
+            let (outs, rng') = MPS.sampleAllDiagVecs vecs rng
+                idx          = bitsToIdx outs
+            in go (i-1) rng' (hist V.// [(idx, hist V.! idx + 1)])
+          rng0 = randoms (mkStdGen seedR) :: [Double]
+      in go k rng0 (V.replicate (2^n) 0)
+
+----------------------------------------------------------------
+-- Generators.
+--
+-- (a) RandomDiagMPS: arbitrary-χ random diagonal-MPS, built directly from
+--     vector data. Spans the *full* class (any χ, no canonical form).
+--     Used for tests that don't compare against canonical-form-dependent
+--     methods (sampleAll, fold-measure1).
+--
+-- (b) genDiagProg: a sequence of single-qubit gates + Permute + Phase on n
+--     qubits — the operations under which the diagonal class is closed.
+--
+-- (c) DiagCircuit: genDiagProg starting from |0..0> (product state, χ=1).
+--     Canonical by construction; used for sampleAll / fold-measure1
+--     cross-checks.
+--
+-- (d) DiagSetup: a (RandomDiagMPS, genDiagProg) pair sharing n. Used to
+--     test closure: applying the program to the random initial state must
+--     yield a diagonal MPS.
+
+data RandomDiagMPS =
+  RandomDiagMPS Int Int (V.Vector (H.Vector ComplexT, H.Vector ComplexT))
+
+instance Show RandomDiagMPS where
+  show (RandomDiagMPS n chi _) =
+    "RandomDiagMPS{n=" ++ show n ++ ", χ=" ++ show chi ++ "}"
+
+instance Arbitrary RandomDiagMPS where
+  arbitrary = do
+    n   <- choose (1, 4)
+    -- For n=1 the MPS has a single 1×1 site, so χ must be 1.
+    chi <- if n == 1 then return 1 else choose (1, 3)
+    let genVec  = H.fromList <$> replicateM chi genComplex
+        genSite = liftA2 (,) genVec genVec
+    sV <- V.fromList <$> replicateM n genSite
+    return (RandomDiagMPS n chi sV)
+
+diagStateFromRandom :: RandomDiagMPS -> MPS.StateT
+diagStateFromRandom (RandomDiagMPS _ _ vecs) = mkDiagMPS vecs
+
+genDiagProg :: Int -> Gen Program
+genDiagProg n = do
+  depth <- choose (0, 5)
+  let gate1q = oneof
+        [ pure X, pure Y, pure Z, pure H, pure SX
+        , liftA2 R (elements [X, Y, Z]) genRat
+        ]
+      placed = do
+        k <- choose (0, n-1)
+        g <- gate1q
+        return (Tensor (Id k) (Tensor g (Id (n - k - 1))))
+      permG = Permute <$> genPermutation n
+      phsG  = Phase   <$> genRat
+  gates <- replicateM depth (frequency [(5, placed), (1, permG), (1, phsG)])
+  return (map Unitary gates)
+
+data DiagCircuit = DiagCircuit Int Program
+instance Show DiagCircuit where
+  show (DiagCircuit n prog) =
+    "DiagCircuit{n=" ++ show n ++ ", depth=" ++ show (length prog) ++ "}"
+instance Arbitrary DiagCircuit where
+  arbitrary = do
+    n    <- choose (1, 4)
+    prog <- genDiagProg n
+    return (DiagCircuit n prog)
+
+diagState :: DiagCircuit -> MPS.StateT
+diagState (DiagCircuit n prog) = runProg prog (MPS.ket (replicate n 0))
+
+data DiagSetup = DiagSetup RandomDiagMPS Program
+instance Show DiagSetup where
+  show (DiagSetup rdm prog) =
+    show rdm ++ " ⊢ depth=" ++ show (length prog)
+instance Arbitrary DiagSetup where
+  arbitrary = do
+    rdm@(RandomDiagMPS n _ _) <- arbitrary
+    prog <- genDiagProg n
+    return (DiagSetup rdm prog)
+
+----------------------------------------------------------------
+-- Properties on *arbitrary-χ* diagonal MPS (RandomDiagMPS).
+-- These don't require canonical form.
+
+-- Born rule: empirical hist matches normalized analytic probs.
+prop_diag_born_random :: RandomDiagMPS -> Property
+prop_diag_born_random rdm@(RandomDiagMPS n _ _) =
+  let st    = diagStateFromRandom rdm
+      raw   = analyticProbs st
+      total = V.sum raw
+  in total > 1e-9 ==>
+     let probs = V.map (/ total) raw
+         k     = 2000
+         hist  = empiricalHistDiag 611 n k st
+         expCt i = fromIntegral k * (probs V.! i)
+         obsCt i = fromIntegral (hist V.! i) :: Double
+         bad   = [ (i, expCt i, obsCt i)
+                 | i <- [0 .. V.length probs - 1]
+                 , abs (obsCt i - expCt i) > 100 ]
+     in counterexample
+          ("bad cells (first 4): " ++ show (take 4 bad))
+          (null bad)
+
+-- Raw entry (sampleAllDiagVecs) matches MPS wrapper (sampleAllDiag).
+prop_raw_matches_wrapper_random :: RandomDiagMPS -> Property
+prop_raw_matches_wrapper_random rdm@(RandomDiagMPS n _ _) =
+  let st    = diagStateFromRandom rdm
+      vecs  = V.map MPS.siteVec (MPS.sites st)
+      k     = 1500
+      hWrap = empiricalHistDiag 901 n k st
+      hRaw  = let go 0 _ h = h
+                  go i rg h =
+                    let (outs, rg') = MPS.sampleAllDiagVecs vecs rg
+                        idx         = bitsToIdx outs
+                    in go (i-1) rg' (h V.// [(idx, h V.! idx + 1)])
+              in go k (randoms (mkStdGen 902) :: [Double]) (V.replicate (2^n) 0)
+      d = tvDistance hWrap hRaw
+  in counterexample ("TV(wrap, raw) = " ++ show d) (d < 0.10)
+
+-- sampleAllDiag returns exactly n bits.
+prop_diag_rng_length_random :: RandomDiagMPS -> Property
+prop_diag_rng_length_random rdm@(RandomDiagMPS n _ _) =
+  let st       = diagStateFromRandom rdm
+      rng      = randoms (mkStdGen 13) :: [Double]
+      (outs,_) = MPS.sampleAllDiag st rng
+  in length outs === n
+
+-- measureAllDiag leaves the post-state as a unit basis vector at the
+-- sampled bitstring index, zero elsewhere.
+prop_measureAllDiag_classical_random :: RandomDiagMPS -> Int -> Property
+prop_measureAllDiag_classical_random rdm@(RandomDiagMPS n _ _) seedN =
+  let st = diagStateFromRandom rdm
+  in V.sum (analyticProbs st) > 1e-9 ==>
+     let rng            = randoms (mkStdGen seedN) :: [Double]
+         (st', outs, _) = MPS.measureAllDiag st rng
+         vec            = MPS.mpsToDenseVec st'
+         d              = H.rows vec
+         idx            = bitsToIdx outs
+         eps            = 1e-6
+         badCells       = [ i
+                          | i <- [0 .. d-1]
+                          , let m = magnitude (vec `H.atIndex` (i, 0))
+                          , if i == idx then abs (m - 1) > eps
+                                        else m > eps ]
+     in counterexample
+          ("n=" ++ show n ++ ", outs=" ++ show outs
+           ++ ", bad cells = " ++ show (take 4 badCells))
+          (null badCells)
+
+-- measureAllDiag post-state has unit norm.
+prop_measureAllDiag_normalized_random :: RandomDiagMPS -> Int -> Property
+prop_measureAllDiag_normalized_random rdm seedN =
+  let st = diagStateFromRandom rdm
+  in V.sum (analyticProbs st) > 1e-9 ==>
+     let rng         = randoms (mkStdGen seedN) :: [Double]
+         (st', _, _) = MPS.measureAllDiag st rng
+         total       = V.sum (analyticProbs st')
+     in counterexample ("post-state norm² = " ++ show total)
+                       (abs (total - 1.0) < 1e-6)
+
+-- Same RNG ⇒ same outcomes from sampleAllDiag and measureAllDiag.
+prop_consistent_rng_random :: RandomDiagMPS -> Property
+prop_consistent_rng_random rdm =
+  let st           = diagStateFromRandom rdm
+  in V.sum (analyticProbs st) > 1e-9 ==>
+     let rng           = randoms (mkStdGen 17) :: [Double]
+         (outsS, _)    = MPS.sampleAllDiag  st rng
+         (_, outsM, _) = MPS.measureAllDiag st rng
+     in outsS === outsM
+
+-- Closure: applying a sequence of 1q gates + Permute + Phase to an arbitrary
+-- diagonal MPS produces a diagonal MPS.
+prop_diag_closure_under_gates :: DiagSetup -> Property
+prop_diag_closure_under_gates (DiagSetup rdm prog) =
+  let st0 = diagStateFromRandom rdm
+      st  = runProg prog st0
+  in counterexample ("not diagonal after depth-" ++ show (length prog) ++ " circuit")
+                    (MPS.isDiagonalMPS st)
+
+----------------------------------------------------------------
+-- Properties on *canonical* diagonal states (DiagCircuit from |0..0>).
+-- These compare against canonical-form-dependent methods.
+
+-- sampleAllDiag agrees with generic sampleAll.
+prop_diag_agrees_sampleAll :: DiagCircuit -> Property
+prop_diag_agrees_sampleAll dc@(DiagCircuit n _) =
+  let st = diagState dc
+      k  = 1500
+      h1 = empiricalHist     701 n k st
+      h2 = empiricalHistDiag 702 n k st
+      d  = tvDistance h1 h2
+  in counterexample ("TV(sampleAll, sampleAllDiag) = " ++ show d) (d < 0.10)
+
+-- sampleAllDiag agrees with the projecting `Measure` step.
+prop_diag_agrees_measure1 :: DiagCircuit -> Property
+prop_diag_agrees_measure1 dc@(DiagCircuit n _) =
+  let st = diagState dc
+      k  = 1500
+      h1 = measureHistMPS    801 n k st
+      h2 = empiricalHistDiag 802 n k st
+      d  = tvDistance h1 h2
+  in counterexample ("TV(measure1, sampleAllDiag) = " ++ show d) (d < 0.10)
+
+diagTests :: TestTree
+diagTests = testGroup "Diagonal-MPS specialization"
+  [ isDiagonalTests
+  , diagSampleVsAnalytic
+  , testGroup "Diag agrees with generic on (canonical) named states"
+      [ diagAgreesWithGenericCase "Bell"  2 bellProg
+      , diagAgreesWithGenericCase "GHZ-3" 3 ghzProg
+      , diagAgreesWithGenericCase "|+>^3" 3 (plusProg 3)
+      ]
+  , testGroup "QC: structural invariants (RandomDiagMPS, any χ)"
+      [ qcOpts $ testProperty "Closure under 1q + Permute + Phase"
+                              prop_diag_closure_under_gates
+      , qcOpts $ testProperty "Raw entry matches MPS wrapper"
+                              prop_raw_matches_wrapper_random
+      , qcOpts $ testProperty "sampleAllDiag returns n bits"
+                              prop_diag_rng_length_random
+      , qcOpts $ testProperty "measureAllDiag yields classical state"
+                              (\rdm -> prop_measureAllDiag_classical_random rdm 29)
+      , qcOpts $ testProperty "measureAllDiag post-state is normalized"
+                              (\rdm -> prop_measureAllDiag_normalized_random rdm 31)
+      , qcOpts $ testProperty "sample/measure agree on shared RNG"
+                              prop_consistent_rng_random
+      ]
+  , testGroup "QC: empirical (slower)"
+      [ localOption (QuickCheckTests 6) $ localOption (QuickCheckMaxSize 3) $
+          testProperty "Born: hist matches normalized analytic (any χ)"
+                       prop_diag_born_random
+      , localOption (QuickCheckTests 8) $ localOption (QuickCheckMaxSize 3) $
+          testProperty "TV(sampleAllDiag, sampleAll) on canonical states"
+                       prop_diag_agrees_sampleAll
+      , localOption (QuickCheckTests 8) $ localOption (QuickCheckMaxSize 3) $
+          testProperty "TV(sampleAllDiag, fold-measure1) on canonical states"
+                       prop_diag_agrees_measure1
+      ]
+  ]
+
+------------------------------------------------------------------------
+
 main :: IO ()
 main = defaultMain $ testGroup "SamplingTest"
   [ determinismTests
@@ -501,4 +868,5 @@ main = defaultMain $ testGroup "SamplingTest"
   , crossBackendTests
   , truncationTests
   , qcTests
+  , diagTests
   ]

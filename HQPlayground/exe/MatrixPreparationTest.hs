@@ -66,7 +66,7 @@ sumTester () =
         norm2 = (norm_Frob matIn2 :+ 0)
 
         -- Norm QOp
-        normQOp = buildRowQOpDS (V.fromList [sqrt(norm1), sqrt(norm2)])  
+        normQOp = buildRowQOp (V.fromList [sqrt(norm1), sqrt(norm2)])  
 
         matData1norm = map (map (/ norm1)) [[1,2,3], [4,5,6], [7,8,9]]
         matData2norm = map (map (/ norm2)) [[10,11,12], [13,14,15],[16,17,18]]
@@ -145,25 +145,25 @@ buildRowQOpTester :: () -> [StateT]
 buildRowQOpTester =
     let 
         -- 2 dim
-        resQOp2 = buildRowQOpDS (V.fromList [1:+1,2])      
+        resQOp2 = buildRowQOp (V.fromList [1:+1,2])      
         rowQOt2 = evalOp resQOp2
         -- Calculate the normalization factor and apply the operator
         finalState2 = sqrt(1^2 + 1^2 + 2^2) .* (apply rowQOt2 (ket ([0])))
 
         -- 3 dim
-        resQOp3 = buildRowQOpDS (V.fromList [1,2,3])      
+        resQOp3 = buildRowQOp (V.fromList [1,2,3])      
         rowQOt3 = evalOp resQOp3
         -- Calculate the normalization factor and apply the operator
         finalState3 = sqrt(1^2 + 2^2 + 3^2) .* (apply rowQOt3 (ket ([0,0])))
 
         -- 4 dim
-        resQOp4 = buildRowQOpDS (V.fromList [1,2,3,4])      
+        resQOp4 = buildRowQOp (V.fromList [1,2,3,4])      
         rowQOt4 = evalOp resQOp4
         -- Calculate the normalization factor and apply the operator
         finalState4 = sqrt(1^2 + 2^2 + 3^2 + 4^2) .* (apply rowQOt4 (ket ([0,0])))
 
         -- 5 dim
-        resQOp5 = buildRowQOpDS (V.fromList [1,2,3,4,5])      
+        resQOp5 = buildRowQOp (V.fromList [1,2,3,4,5])      
         rowQOt5 = evalOp resQOp5
         -- Calculate the normalization factor and apply the operator
         finalState5 = sqrt(1^2 + 2^2 + 3^2 + 4^2 + 5^2) .* (apply rowQOt5 (ket ([0,0,0])))

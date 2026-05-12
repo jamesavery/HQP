@@ -1,13 +1,10 @@
 module Programs.MatrixPreparation where
 import HQP
 import Data.Complex
-import Data.Ratio
-import System.Random(mkStdGen, randoms)
 import Data.Vector (Vector)
 import qualified Data.Vector as V
-import Data.List
+import Data.List (unfoldr)
 import Data.Maybe
-import Debug.Trace
 
 import Numeric.LinearAlgebra (conj, toRows, toList)
 import HQP.QOp.MatrixSemantics (CMat)
@@ -19,54 +16,29 @@ getRows = V.fromList . map (V.fromList . toList) . toRows
 
 ----------------------Matrixpreparation--------------------------
 
+-- | Norm-encoding half of the U†V construction: prepares the row-norm vector
+--   of M, tensored with an n-qubit identity for the system register.
 unitaryV :: CMat -> QOp
-unitaryV mat = 
+unitaryV mat =
     let rowsVec = getRows mat
         rowLen v = sqrt . V.sum $ V.map (\x -> x * conjugate x) v
         allLens = V.map rowLen rowsVec
         retQOp = buildRowQOp allLens
-    in 
-        retQOp ⊗ I
-
--- Direct sum version
-unitaryVDS :: CMat -> QOp
-unitaryVDS mat = 
-    let rowsVec = getRows mat
-        rowLen v = sqrt . V.sum $ V.map (\x -> x * conjugate x) v
-        allLens = V.map rowLen rowsVec
-        retQOp = buildRowQOpDS allLens
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length rowsVec)))
-    in 
+        numQbits = ceiling (logBase 2 (fromIntegral (V.length rowsVec)) :: Double)
+    in
         retQOp ⊗ (Id numQbits)
 
-unitaryU:: CMat -> QOp
-unitaryU mat =  
-    let
-        rowsVec = getRows (conj mat)
-        uBlocks = (V.map buildRowQOp rowsVec)
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)))
-        indexedBlocks = V.indexed uBlocks
-        fixedUBlockProcessStep = uBlockProcessStep numQbits
-        accQOp = V.foldl fixedUBlockProcessStep I indexedBlocks 
-        swap = if numQbits == 1 then Permute [1,0] else Permute ([numQbits .. 2*(numQbits) - 1 ] ++ [0 .. (numQbits - 1)])
-    in
-        accQOp <> swap
-
-
-uBlockProcessStep :: Int -> QOp -> (Int,QOp) -> QOp
-uBlockProcessStep numQbits accqOp (idx, qOp) = 
-        accqOp <> condMultQb (toBitString idx numQbits) conditional qOp
-
-
--- Direct sum version
-unitaryUDS:: CMat -> QOp
-unitaryUDS mat =  
+-- | Row-encoding half: for each row of conj(M), build a row-prep unitary;
+--   assemble them into a balanced DirectSum tree, then SWAP to put the
+--   ancilla register first.
+unitaryU :: CMat -> QOp
+unitaryU mat =
     let
         -- Get the row encodings
         rowsVec = getRows (conj mat)
-        uBlocks = (V.map buildRowQOpDS rowsVec)
+        uBlocks = (V.map buildRowQOp rowsVec)
         -- Pad with I_n to 2^n length
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)))
+        numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)) :: Double)
         uBlocksPadded = padToPowerOf2 numQbits (Id numQbits) uBlocks
         -- Build the direct sums
         dsQOp = foldBalanced uBlocksPadded DirectSum
@@ -83,142 +55,50 @@ padToPowerOf2 numQbits paddingObj vec
   where
     len  = V.length vec
 
+-- | Block-encode a complex matrix M as a 2n-qubit unitary U such that
+--   the upper-left 2^n × 2^n block of U equals M / ‖M‖_F (Frobenius norm).
 matrixPrep :: CMat -> QOp
-matrixPrep mat = 
-    let
-        -- Find U matrix
-        --uQOp = unitaryU mat
-        uQOp = unitaryUDS mat -- Direct Sum version
-
-        -- Find V matrix
-        --vQOp = unitaryV mat
-        vQOp = unitaryVDS mat
-    in
-        (Adjoint uQOp) ∘ vQOp
+matrixPrep mat = (Adjoint (unitaryU mat)) ∘ (unitaryV mat)
 
 ------------------------ Row preparation -------------------------
 
+-- | Build a QOp that prepares the amplitude state v/‖v‖ from |0..0⟩.
+--   The input vector is zero-padded to the next power of 2 implicitly via
+--   `splitList`'s singleton chunks (each becomes an R Y 0 = I leaf).
 buildRowQOp :: Vector ComplexT -> QOp
-buildRowQOp vs = do
-    let
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length vs)))
-        qOp = Id (numQbits)   
-        pairList = splitList vs
-    
-    createRotations numQbits 0 qOp pairList
+buildRowQOp vs = createRotations 0 (splitList vs)
 
--- Direct sum version
-buildRowQOpDS :: Vector ComplexT -> QOp
-buildRowQOpDS vs = do
-    let pairList = splitList vs
-    createRotationsDS 0 pairList
-
-createRotations :: Int -> Int -> QOp -> [V.Vector ComplexT] -> QOp
-createRotations numQbits level inQOp vs
-
-    | length vs == 1 = inQOp <> createQOp numQbits level 0 (vs !! 0)
-    | otherwise =
-        let (pairLenLst, accQOp) = foldl (\(accVec, qOp) (i, v) -> 
-                                    processStep numQbits level (accVec, qOp) i v) 
-                                   (V.empty, inQOp) 
-                                   (zip [0..] vs)
-        in createRotations numQbits (level + 1) accQOp (splitList pairLenLst)
-
--- Direct sum version
-createRotationsDS :: Int -> [V.Vector ComplexT] -> QOp
-createRotationsDS level vs
-    | length vs == 1 = (createQOpDS level (head vs) ⊗ (Id level))
+createRotations :: Int -> [V.Vector ComplexT] -> QOp
+createRotations level vs
+    | length vs == 1 = (createQOp level (head vs) ⊗ (Id level))
     | otherwise =
         let -- One 1-qubit leaf gate per chunk. splitList can produce a non-power-of-2
             -- number of chunks (e.g. length-5 input → 3 chunks); pad the leaf array with
             -- Id 1 placeholders so foldBalanced can fold a balanced binary DirectSum
             -- tree. The placeholder branches correspond to indices with zero amplitude.
-            leafOps    = V.fromList (map (createQOpDS level) vs)
+            leafOps    = V.fromList (map (createQOp level) vs)
             nQubits    = ceiling (logBase 2 (fromIntegral (V.length leafOps)) :: Double)
             leafOpsPad = padToPowerOf2 nQubits I leafOps
             accQOp     = foldBalanced leafOpsPad DirectSum
             -- Inner-node norms for the next level of the rotation tree.
             pairLenLst = V.fromList (map pairNorm vs)
-        in (accQOp ⊗ (Id level)) <> createRotationsDS (level + 1) (splitList pairLenLst)
+        in (accQOp ⊗ (Id level)) <> createRotations (level + 1) (splitList pairLenLst)
   where
     pairNorm pair =
         let val0 = pair V.! 0
             val1 = fromMaybe 0 (pair V.!? 1)
         in sqrt (val0 * conjugate val0 + val1 * conjugate val1)
 
--- Direct Sum Version
-processStepDS :: Int -> (Vector ComplexT, QOp) -> Vector ComplexT -> (Vector ComplexT, QOp)
-processStepDS level (accVec, accQOp) pairVector
-    | V.length pairVector <= 2 = 
-        (newVec, newQOp) 
-    | otherwise = error "Her burde der kun være par eller singletons"
+createQOp :: Int -> V.Vector ComplexT -> QOp
+createQOp level pairVector
+    | level < 0  = error "Ups ... level er negativt"
+    | level == 0 = if abs r1 < 1e-9 && abs r2 < 1e-9 then I else calculateComplexGate r1 phi1 r2 phi2
+    | otherwise  = if abs r1 < 1e-9 && abs r2 < 1e-9 then I else calculateRealGate r1 r2
   where
-    newVec   = updateInnerNodeVector pairVector accVec 
-    newQOp   = DirectSum accQOp (createQOpDS level pairVector)
-
-updateInnerNodeVector:: Vector ComplexT -> Vector ComplexT -> Vector ComplexT
-updateInnerNodeVector pairVector accVec =
-    let
-        val0     = pairVector V.! 0
-        val1     = fromMaybe 0 (pairVector V.!? 1)
-        newValue = sqrt (val0 * (conjugate val0) + val1 * (conjugate val1))
-    in V.snoc accVec newValue
-
-processStep :: Int -> Int -> (Vector ComplexT, QOp) -> Int -> Vector ComplexT -> (Vector ComplexT, QOp)
-processStep numQbits level (accVec, accQOp) pairIdx pairVector
-    | V.length pairVector <= 2 = 
-        (newVec, newQOp) 
-    | otherwise = error "Her burde der kun være par eller singletons"
-  where
-    val0     = pairVector V.! 0
-    val1     = fromMaybe 0 (pairVector V.!? 1)
-    newValue = sqrt (val0 * (conjugate val0) + val1 * (conjugate val1))
-    newVec   = V.snoc accVec newValue
-    newQOp   = accQOp <> createQOp numQbits level pairIdx pairVector
-
-
-
-createQOp :: Int -> Int -> Int -> V.Vector ComplexT -> QOp
-createQOp numQbits level pairIdx pairVector
-    -- 1. Error checks first
-
-    | level >= numQbits = error "Ups ... level er ikke mindre end numQbits"
-    | level < 0         = error "Ups ... level er negativt"
-    
-    -- 2. Base case
-
-    | level == 0 = 
-        if abs r1 < 1e-9 && abs r2 < 1e-9 then I else
-            let rotQOp = calculateComplexGate r1 phi1 r2 phi2
-            in condMultQb (toBitString pairIdx (numQbits - level -1)) conditional rotQOp
-
-    -- 3. Recursive/Higher levels
-    | level > 0 = 
-        if abs r1 < 1e-9 && abs r2 < 1e-9 then I else
-            let rotQOp = calculateRealGate r1 r2
-                condGate = condMultQb (toBitString (pairIdx `mod` 2^(numQbits - level - 1)) (numQbits-level - 1)) conditional rotQOp
-            in if (numQbits - level == 1) 
-            then rotQOp ⊗ (Id level) 
-            else condGate ⊗ (Id level)
-    where
-        val0       = pairVector V.! 0
-        val1       = fromMaybe 0 (pairVector V.!? 1) 
-        (r1, phi1) = polar val0
-        (r2, phi2) = polar val1
-
--- Direct Sum Version
-createQOpDS :: Int -> V.Vector ComplexT -> QOp
-createQOpDS level pairVector
-    | level < 0         = error "Ups ... level er negativt"
-    | level == 0 = 
-        if abs r1 < 1e-9 && abs r2 < 1e-9 then I else calculateComplexGate r1 phi1 r2 phi2
-    | level > 0 = 
-        if abs r1 < 1e-9 && abs r2 < 1e-9 then I else calculateRealGate r1 r2
-    where
-        val0       = pairVector V.! 0
-        val1       = fromMaybe 0 (pairVector V.!? 1) 
-        (r1, phi1) = polar val0
-        (r2, phi2) = polar val1
+    val0       = pairVector V.! 0
+    val1       = fromMaybe 0 (pairVector V.!? 1)
+    (r1, phi1) = polar val0
+    (r2, phi2) = polar val1
 
 
 calculateComplexGate :: Double -> Double -> Double -> Double -> QOp
@@ -242,50 +122,44 @@ calculateRealGate r1 r2
         in
             R Y theta
 
+----------------- Helper funcs ----------
+
+-- | Bit decomposition of n as a list of length bitStrLen, MSB-first.
 toBitString :: Int -> Int -> [Int]
 toBitString n bitStrLen
-
     | n < 0     = replicate bitStrLen 0  -- Or handle error as needed
-    | otherwise = 
-        let 
-            -- Generate bits from least to most significant
-            bits = unfoldr step n
+    | otherwise =
+        let bits = unfoldr step n
             step 0 = Nothing
             step x = Just (fromIntegral (x `mod` 2), x `div` 2)
-            
-            -- Reverse to get proper order and pad with leading zeros
             rawBits = reverse bits
             padding = replicate (bitStrLen - length rawBits) 0
-            
-            -- Combine and ensure final length is exactly bitStrLen
         in take bitStrLen (padding ++ rawBits)
 
+-- | Wrap an op in a 0- or 1-conditional (X-conjugated C for bit=0).
 conditional :: Int -> QOp -> QOp
-conditional bit inQOp 
+conditional bit inQOp
     | bit == 0 = (X ⊗ I) <> C inQOp <> (X ⊗ I)
     | bit == 1 = C inQOp
-    | otherwise = error "Ups ... bit skal være 0 eller 1" 
+    | otherwise = error "Ups ... bit skal være 0 eller 1"
 
+-- | Compose conditional gates for each bit of a bit pattern.
 condMultQb :: [Int] -> (Int -> QOp -> QOp) -> QOp -> QOp
 condMultQb bitPattern fct initialOp =
     foldr (\bit op -> fct bit op) initialOp bitPattern
 
------------------ Helper funcs ----------
--- Burde nok slås sammen med koden ved foldBalanced
--- Det er en træopbyggende rekursiv metode der bør abstraheres
-
+-- | Recursively split a vector into power-of-2 chunks of length ≤ 2.
+--   This is the dual of `foldBalanced` (downward decomposition vs upward
+--   combination); it produces the leaf vector used by the rotation tree.
 splitList :: V.Vector ComplexT -> [V.Vector ComplexT]
 splitList vs = go [vs]
   where
     go curr
-
         | all (\v -> V.length v <= 2) curr = curr
         | otherwise = go (concatMap splitStep curr)
 
--- 2. Logic to split a single Vector based on the 2^n rule
 splitStep :: V.Vector ComplexT -> [V.Vector ComplexT]
 splitStep v
-
     | len <= 2 = [v]
     | otherwise =
         let n = floor (logBase 2 (fromIntegral len) :: Double)
@@ -296,10 +170,3 @@ splitStep v
             right = V.slice splitPoint (len - splitPoint) v
         in [left, right]
   where len = V.length v
-
-
-
-
-
-
-

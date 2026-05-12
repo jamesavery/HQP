@@ -105,14 +105,14 @@ pureHelperTests = testGroup "Pure helpers"
   ]
 
 ----------------------------------------------------------------------
--- buildRowQOpDS — row preparation
+-- buildRowQOp — row preparation
 ----------------------------------------------------------------------
 
--- | Apply buildRowQOpDS to |0..0⟩, return the resulting state-vector
+-- | Apply buildRowQOp to |0..0⟩, return the resulting state-vector
 --   (= first column of the unitary).
 rowPrepStateMS :: V.Vector ComplexT -> CMat
 rowPrepStateMS v =
-  let m   = MS.evalOp (buildRowQOpDS v)
+  let m   = MS.evalOp (buildRowQOp v)
       dim = rows m
   in subMatrix (0, 0) (dim, 1) m
 
@@ -131,7 +131,7 @@ rowPrepCase lbl v = testCase lbl $
   assertClose ("row prep " ++ lbl) (expectedRowPrep v) (rowPrepStateMS v)
 
 rowPrepTests :: TestTree
-rowPrepTests = testGroup "buildRowQOpDS"
+rowPrepTests = testGroup "buildRowQOp"
   [ rowPrepCase "[3, 4]"               (V.fromList [3 :+ 0, 4 :+ 0])
   , rowPrepCase "[1, 2, 3]"            (V.fromList [1 :+ 0, 2 :+ 0, 3 :+ 0])
   , rowPrepCase "[1, 2, 3, 4]"         (V.fromList [1 :+ 0, 2 :+ 0, 3 :+ 0, 4 :+ 0])
@@ -206,8 +206,8 @@ matrixPrepTests = testGroup "matrixPrep (block encoding)"
 
 backendConsistencyTests :: TestTree
 backendConsistencyTests = testGroup "Backend consistency (MS = MPS = SV)"
-  [ testCase "buildRowQOpDS [1,2,3,4]" $ checkBackends
-      (buildRowQOpDS (V.fromList [1:+0, 2:+0, 3:+0, 4:+0]))
+  [ testCase "buildRowQOp [1,2,3,4]" $ checkBackends
+      (buildRowQOp (V.fromList [1:+0, 2:+0, 3:+0, 4:+0]))
   , testCase "matrixPrep [[0.6,0],[0,0.3]]" $ checkBackends
       (matrixPrep (fromLists [[0.6:+0, 0:+0], [0:+0, 0.3:+0]]))
   , testCase "matrixPrep [[1,2],[3,4]]" $ checkBackends
@@ -304,7 +304,7 @@ qcOpts = localOption (QuickCheckTests 30) . localOption (QuickCheckMaxSize 4)
 
 propertyTests :: TestTree
 propertyTests = qcOpts $ testGroup "Properties"
-  [ testProperty "buildRowQOpDS prepares v/‖v‖"     prop_rowPrep_correct
+  [ testProperty "buildRowQOp prepares v/‖v‖"     prop_rowPrep_correct
   , testProperty "matrixPrep block = M/‖M‖_F"       prop_matrixPrep_block
   , testProperty "matrixPrep output is unitary"     prop_matrixPrep_unitary
   , testProperty "matrixPrep matches across backends" prop_matrixPrep_3backends

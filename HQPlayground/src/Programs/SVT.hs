@@ -1,18 +1,18 @@
 module Programs.SVT where
 import HQP
 import Programs.Qubitization
-import Polynomial.Roots (roots)
-import Polynomial.Basic (polyadd, polysub, polymult,polyderiv, polyeval)
+
+import Data.Poly (VPoly, toPoly, unPoly,leading, scale)
+
 import Data.Complex (Complex((:+)), realPart, imagPart,magnitude,polar)
 import qualified Data.Vector as V
 import Data.List (sortOn,sortBy, groupBy, partition)
 import Data.Ord (comparing)
 import Data.Sequence (Seq(..), (><))
 import qualified Data.Sequence as Seq
---import Debug.Trace
 
--- This vector ... 
-svtVectorPhi :: [ComplexT] -> [ComplexT] -> Seq Double
+-- This vector ... ...
+svtVectorPhi :: VPoly ComplexT -> VPoly ComplexT -> Seq Double
 svtVectorPhi p q =
     let
         -- Generate a sequence
@@ -31,7 +31,7 @@ svtVectorPhi p q =
 altPhaseMod :: Int -> Int -> Seq Double -> QOp -> QOp
 altPhaseMod matrixQubits encQubits svtVec blockEnc =
     let
-        -- Create the phase matrices
+        -- Create the phase matrices ...
         phaseOperators = fmap (phaseOpBuilder matrixQubits encQubits) svtVec 
     in
         -- Create the phased alternating sequence

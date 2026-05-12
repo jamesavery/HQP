@@ -124,6 +124,7 @@ calculateRealGate r1 r2
 
 ----------------- Helper funcs ----------
 
+{-
 -- | Bit decomposition of n as a list of length bitStrLen, MSB-first.
 toBitString :: Int -> Int -> [Int]
 toBitString n bitStrLen
@@ -136,6 +137,7 @@ toBitString n bitStrLen
             padding = replicate (bitStrLen - length rawBits) 0
         in take bitStrLen (padding ++ rawBits)
 
+ 
 -- | Wrap an op in a 0- or 1-conditional (X-conjugated C for bit=0).
 conditional :: Int -> QOp -> QOp
 conditional bit inQOp
@@ -147,6 +149,7 @@ conditional bit inQOp
 condMultQb :: [Int] -> (Int -> QOp -> QOp) -> QOp -> QOp
 condMultQb bitPattern fct initialOp =
     foldr (\bit op -> fct bit op) initialOp bitPattern
+-}
 
 -- | Recursively split a vector into power-of-2 chunks of length ≤ 2.
 --   This is the dual of `foldBalanced` (downward decomposition vs upward

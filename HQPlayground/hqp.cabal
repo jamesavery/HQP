@@ -60,6 +60,7 @@ library core
       Programs.MatrixArithmetic
       Programs.Qubitization
       Programs.SVT
+      Programs.RootFinding
       Programs.QuantumAdder
       Programs.RepeaterProtocol
 
@@ -77,7 +78,10 @@ library core
         ieee754,
         pqueue,
         tasty,
-        dsp
+        dsp,
+        poly,
+        semirings,
+        factor
 --        hasktorch
     hs-source-dirs:   src
 
@@ -152,8 +156,8 @@ executable SVTtest
   build-depends:
     random,
     vector,
-    dsp,
-    containers
+    containers,
+    poly
   main-is: SVTtest.hs
 
 executable Qubitizationtest
@@ -161,7 +165,7 @@ executable Qubitizationtest
   build-depends:
     random,
     vector,
-    dsp
+    poly
   main-is: Qubitizationtest.hs
 
 executable BackendValidation
@@ -173,3 +177,19 @@ executable MatrixPrepTest
   build-depends:
     vector
   main-is: MatrixPrepTest.hs
+
+executable RootFindingTest
+  import: exe-common
+  build-depends:
+    poly,
+    vector,
+    hmatrix
+  main-is: RootFindingTest.hs
+
+executable SparseMatrixTest
+  import: exe-common
+  build-depends:
+    poly,
+    vector,
+    hmatrix
+  main-is: SparseMatrixTest.hs

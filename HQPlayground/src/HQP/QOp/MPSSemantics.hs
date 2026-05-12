@@ -8,7 +8,7 @@ module HQP.QOp.MPSSemantics
   , Interval(..)
   , Trunc(..), EvalCfg(..), defaultCfg, ProfileCfg(..)
   , ket, ketW, toSparseMat, mpsToDenseVec, opToDenseMat
-  , measureProjection, measure1
+  , measureProjection, measure1, sampleAll
   , apply, evalStep, evalProg
   , evalOp, evalOpAtW
   , dagger
@@ -680,6 +680,72 @@ measure1 (st, outs, u:us) k = --trace("measure1 on qubit " ++ show k ++ " of sta
          st3  = clearDirty (compressRange (singletonIval p) st2)
      in (st3, b:outs, us)
 measure1 (_,_,[]) _ = error "measure1: empty RNG"
+
+-- | Sample a computational-basis outcome for *every* qubit without producing a
+--   post-measurement state. Uses the Ferris--Vidal perfect-sampling recurrence:
+--   given a mixed-canonical MPS at center @c@, sweep right from @c@ to @n-1@
+--   maintaining a running matrix product @B@ as the left boundary, then sweep
+--   left from @c-1@ to @0@ where the boundary has collapsed to a vector. No
+--   SVDs; matmul for the right sweep, matvec for the left sweep.
+--   Outcomes are returned head-most-recent, matching @Measure [0..n-1]@:
+--   @outs = [b_0, b_1, ..., b_{n-1}]@ with @b_0@ at the head (last bit
+--   processed by the @reverse ks@ fold).
+sampleAll :: HasCallStack => StateT -> RNG -> (Outcomes, RNG)
+sampleAll = sampleAllW . toWork
+
+sampleAllW :: HasCallStack => WorkT -> RNG -> (Outcomes, RNG)
+sampleAllW psi0 rng0
+  | n == 0    = ([], rng0)
+  | otherwise =
+      let chiC  = rows (a0 (sites psi ! c))
+          bInit = H.complex (H.ident chiC :: H.Matrix Double) :: CMat
+          (bEnd, rng1, rightPairs) =
+            foldl' rightStep (bInit, rng0, []) [c .. n-1]
+          vInit = H.flatten bEnd
+          (_v,   rng2, leftPairs)  =
+            foldl' leftStep  (vInit, rng1, []) [c-1, c-2 .. 0]
+          bits = V.replicate n False V.// (rightPairs ++ leftPairs)
+          outs = [ bits ! k | k <- [0 .. n-1] ]
+      in (outs, rng2)
+  where
+    psi   = compressIfDirty psi0
+    n     = nSites psi
+    c     = center_site psi
+    tolP  = tol (cfg psi)
+
+    rightStep :: (CMat, RNG, [(Int,Bool)]) -> Int
+              -> (CMat, RNG, [(Int,Bool)])
+    rightStep (_, [], _)     _ = error "sampleAll: empty RNG"
+    rightStep (b, r:rs, acc) p =
+      let Site x0 x1 = sites psi ! p
+          m0  = b .*. x0
+          m1  = b .*. x1
+          w0  = frob2 m0
+          w1  = frob2 m1
+          tot = w0 + w1
+      in if tot < tolP
+           then error "sampleAll: prob ~ 0"
+           else let bit = r * tot >= w0
+                    b'  = if bit then m1 else m0
+                    q   = phys2log psi ! p
+                in (b', rs, (q, bit) : acc)
+
+    leftStep :: (CVec, RNG, [(Int,Bool)]) -> Int
+             -> (CVec, RNG, [(Int,Bool)])
+    leftStep (_, [], _)     _ = error "sampleAll: empty RNG"
+    leftStep (v, r:rs, acc) p =
+      let Site x0 x1 = sites psi ! p
+          u0  = x0 #> v
+          u1  = x1 #> v
+          w0  = realPart (dot u0 u0)   -- dot conjugates left arg => ‖u‖²
+          w1  = realPart (dot u1 u1)
+          tot = w0 + w1
+      in if tot < tolP
+           then error "sampleAll: prob ~ 0"
+           else let bit = r * tot >= w0
+                    v'  = if bit then u1 else u0
+                    q   = phys2log psi ! p
+                in (v', rs, (q, bit) : acc)
 
 -- support interval (physical hull) from op_support
 supportInterval :: WorkT -> Int -> QOp -> Interval

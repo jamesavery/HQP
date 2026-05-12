@@ -179,3 +179,11 @@ executable AlgebraTest
   import: test-common
   main-is: AlgebraTest.hs
   other-modules: Generators
+
+executable SamplingTest
+  import: test-common
+  build-depends:
+    random,
+    vector
+  main-is: SamplingTest.hs
+  other-modules: Generators

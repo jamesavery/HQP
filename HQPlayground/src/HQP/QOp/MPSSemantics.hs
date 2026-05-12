@@ -461,12 +461,42 @@ applyPauliString base axis m =
                    ) m [0..n-1]
   in (ϕ, m', iSupp)
 
+-- | Physical hull of positions where `phys2log[p] /= p`: exactly the sites
+--   `normalizeSiteOrder` can mutate via `swapSites`, since the bubble sort
+--   only sweeps between the lowest and highest misplaced positions. Reflects
+--   ALL non-canonical state accumulated so far (e.g. log2phys inherited from
+--   an outer `Permute`), so it can extend beyond any single op's
+--   `op_support`. Returns `Nothing` when the state is already canonical.
+normalizeTouchInterval :: WorkT -> Maybe Interval
+normalizeTouchInterval m =
+  let p2l = phys2log m
+      n   = nSites m
+      bad = [ p | p <- [0 .. n - 1], p2l ! p /= p ]
+  in case bad of
+       [] -> Nothing
+       _  -> Just (Ival (minimum bad) (maximum bad))
+
 -- local addition with branch-index only on a hull, followed by local compression
 addLocal :: Interval -> WorkT -> WorkT -> WorkT
-addLocal (Ival l r) ψ0 φ0 = withSameFrame "addLocal" ψ0 φ0 $ \ψ φ ->
+addLocal (Ival l0 r0) ψ0 φ0 = withSameFrame "addLocal" ψ0 φ0 $ \ψ φ ->
+    -- The caller's `[l0, r0]` is derived from `op_support` — sites the current
+    -- op touches. But when ψ0 and φ0 disagree on `log2phys`, `withSameFrame`
+    -- invokes `normalizeSiteOrder`, whose `swapSites` (SVD-based) bubble sort
+    -- sweeps the FULL range of phys2log misplacement — including misplacement
+    -- inherited from ancestor ops, which can extend beyond any single op's
+    -- support. After normalize, ψ and φ may disagree at sites the caller
+    -- never named, so the merge's "outside [l, r] = identical" promise breaks.
+    -- Fix: union [l0, r0] with each input's normalize-touch interval — the
+    -- exact sweep range, no wider. Zero-cost when both inputs are canonical.
+    let Ival l r =
+          let combine Nothing iv = iv
+              combine (Just (Ival a b)) (Ival a' b') = Ival (min a a') (max b b')
+          in combine (normalizeTouchInterval ψ0)
+                     (combine (normalizeTouchInterval φ0) (Ival l0 r0))
+    in
     if      scalar ψ == 0 then φ0
     else if scalar φ == 0 then ψ0
-    else let 
+    else let
         (ψ1,φ1) = (absorbScalarAt l ψ, absorbScalarAt l φ)
         (sψ, sφ) = (sites ψ1, sites φ1)
 

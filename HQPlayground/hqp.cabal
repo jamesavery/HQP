@@ -151,3 +151,12 @@ executable Qubitizationtest
     vector,
     dsp
   main-is: Qubitizationtest.hs
+
+executable BackendValidation
+  import: exe-common
+  main-is: BackendValidation.hs
+  build-depends:
+    tasty,
+    tasty-hunit,
+    tasty-quickcheck,
+    QuickCheck

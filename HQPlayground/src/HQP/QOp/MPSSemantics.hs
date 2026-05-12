@@ -224,7 +224,8 @@ dagger = \case
   Y             -> Y
   Z             -> Z
   H             -> H
-  SX            -> Adjoint SX
+  SX            -> Compose SX X       -- SX² = X, so SX⁻¹ = SX³ = SX·X
+
   R a t         -> R a (-t)
   C a           -> C (dagger a)
   Permute ks    -> Permute (invertPerm ks)
@@ -676,7 +677,7 @@ evalOpAtW base op st = case op of
   SX ->
     let p = 0.5:+0.5
         m = 0.5:+(-0.5)
-    in apply1Logical base 0 (p,p,m,p) st
+    in apply1Logical base 0 (p, m, m, p) st
   
   Tensor a b ->
     let st1 = evalOpAtW base a st
@@ -687,10 +688,8 @@ evalOpAtW base op st = case op of
   
   Adjoint a -> evalOpAtW base (dagger a) st
   
-  R axis θ -- TODO: Optimize 1 qubit case
+  R axis θ
     | θ == 0 -> st
-    | n_qubits axis == 1 -> let u = pauliGate axis
-                            in apply1Logical base 0 u st
     | otherwise ->
         let t = pi * fromRational θ / 2
             c = cos t :+ 0
@@ -698,24 +697,28 @@ evalOpAtW base op st = case op of
             iC = 0 :+ 1
             (phi, pst, iSupp) = applyPauliString base axis st
             ψ1 = c .* st
-            ψ2 = (iC*s*phi) .* pst
+            ψ2 = ((-iC)*s*phi) .* pst   -- exp(-iπθ/2 · P) = c·I − i·s·P
         in addLocal iSupp ψ1 ψ2
   
   C a ->
-    let ctrlP = log2phys st ! base
-        iA    = supportInterval st (base+1) a
-        iHull = hull (singletonIval ctrlP) iA
-        b0    = projectCtrl ctrlP False st
-        b1    = evalOpAtW  (base+1) a (projectCtrl ctrlP True st)
+    let ctrlP  = log2phys st ! base
+        ctrlIv = singletonIval ctrlP
+        iA     = if S.null (op_support a)
+                   then ctrlIv                          -- empty support: stay at control bit
+                   else supportInterval st (base+1) a
+        iHull  = hull ctrlIv iA
+        b0     = projectCtrl ctrlP False st
+        b1     = evalOpAtW  (base+1) a (projectCtrl ctrlP True st)
     in addLocal iHull b0 b1
-  
+
   DirectSum a b ->
-    let ctrlP = log2phys st ! base
-        iA    = supportInterval st (base+1) a
-        iB    = supportInterval st (base+1) b
-        iHull = hull (singletonIval ctrlP) (hull iA iB)
-        b0    = evalOpAtW (base+1) a (projectCtrl ctrlP False st)
-        b1    = evalOpAtW (base+1) b (projectCtrl ctrlP True  st)
+    let ctrlP  = log2phys st ! base
+        ctrlIv = singletonIval ctrlP
+        iA     = if S.null (op_support a) then ctrlIv else supportInterval st (base+1) a
+        iB     = if S.null (op_support b) then ctrlIv else supportInterval st (base+1) b
+        iHull  = hull ctrlIv (hull iA iB)
+        b0     = evalOpAtW (base+1) a (projectCtrl ctrlP False st)
+        b1     = evalOpAtW (base+1) b (projectCtrl ctrlP True  st)
     in addLocal iHull b0 b1
 
 -- Steps / programs -- MOVE TO COMMON MODULE.

@@ -489,7 +489,7 @@ evalOpMat op k r = go op
                   s         = sin t :+ 0
                   i        = 0 :+ 1
                   (ϕ, px) = applyPauliProduct axis k r x
-                in  (c .* x) .+  (i*s*ϕ) .* px
+                in  (c .* x) .-  (i*s*ϕ) .* px   -- exp(-iπθ/2 · P) = c·I − i·s·P
     
     sub a = let f = evalOpMat a (k-1) r in f
           
@@ -648,7 +648,8 @@ dagger = \case
   Y             -> Y
   Z             -> Z
   H             -> H
-  SX            -> Adjoint SX -- Do we need applySXdagger?
+  SX            -> Compose SX X       -- SX² = X, so SX⁻¹ = SX³ = SX·X
+
   R a theta     -> R a (-theta)
   C a           -> C (dagger a)
   Permute ks    -> Permute (invertPerm ks)

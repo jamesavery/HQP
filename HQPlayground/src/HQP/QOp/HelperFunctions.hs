@@ -120,8 +120,9 @@ invertPerm ks = map snd $  -- For each index in the output, find its position in
 permutationSwaps :: V.Vector Int -> [Int]
 permutationSwaps p0 = runST $ do
   let n    = V.length p0
-      -- inverse permutation: pos[v] = index where value v currently sits
-      pos0 = V.update (V.replicate n 0) (V.indexed p0)
+      -- inverse permutation: pos[v] = index where value v currently sits.
+      -- V.indexed p0 = [(i, p0!i)]; we need pairs (p0!i, i) to update pos[v] = i.
+      pos0 = V.update (V.replicate n 0) (V.imap (\i v -> (v, i)) p0)
   p   <- V.thaw p0
   pos <- V.thaw pos0
 

@@ -79,7 +79,9 @@ evalOp op = case op of
        in  s * ((2><2) [1, 1,
                        1,-1])
 
-  SX -> evalOp $ R X (1/2)
+  SX -> let p = 0.5:+0.5
+            m = 0.5:+(-0.5)
+        in (2><2) [p, m, m, p]   -- IBM-convention SX; matches MPS/SV. SX² = X.
 
   R axis q -> 
       let mat  = evalOp axis

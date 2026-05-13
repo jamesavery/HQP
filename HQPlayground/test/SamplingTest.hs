@@ -775,6 +775,21 @@ prop_measureAllDiag_normalized_random rdm seedN =
      in counterexample ("post-state norm² = " ++ show total)
                        (abs (total - 1.0) < 1e-6)
 
+-- Same, but the input MPS has a non-unit global scalar. Catches the bug where
+-- measureAllDiag was multiplying the renormalisation factor by the original
+-- scalar instead of replacing it.
+prop_measureAllDiag_normalized_scaled :: RandomDiagMPS -> Int -> Property
+prop_measureAllDiag_normalized_scaled rdm seedN =
+  let st0 = diagStateFromRandom rdm
+  in V.sum (analyticProbs st0) > 1e-9 ==>
+     forAll (genComplex `suchThat` (\c -> magnitude c > 0.5 && magnitude c < 10)) $ \c ->
+       let st         = c .* st0
+           rng        = randoms (mkStdGen seedN) :: [Double]
+           (st',_,_)  = MPS.measureAllDiag st rng
+           total      = V.sum (analyticProbs st')
+       in counterexample ("scalar=" ++ show c ++ ", post-norm²=" ++ show total)
+                         (abs (total - 1.0) < 1e-6)
+
 -- Same RNG ⇒ same outcomes from sampleAllDiag and measureAllDiag.
 prop_consistent_rng_random :: RandomDiagMPS -> Property
 prop_consistent_rng_random rdm =
@@ -838,6 +853,8 @@ diagTests = testGroup "Diagonal-MPS specialization"
                               (\rdm -> prop_measureAllDiag_classical_random rdm 29)
       , qcOpts $ testProperty "measureAllDiag post-state is normalized"
                               (\rdm -> prop_measureAllDiag_normalized_random rdm 31)
+      , qcOpts $ testProperty "measureAllDiag normalizes under non-unit scalar"
+                              (\rdm -> prop_measureAllDiag_normalized_scaled rdm 37)
       , qcOpts $ testProperty "sample/measure agree on shared RNG"
                               prop_consistent_rng_random
       ]

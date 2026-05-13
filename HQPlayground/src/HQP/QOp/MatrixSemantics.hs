@@ -13,6 +13,7 @@ import Data.List(sort)
 import Debug.Trace(trace)
 
 type CMat = Matrix ComplexT
+type CVec = Vector ComplexT
 type RMat = Matrix RealT
 type StateT = CMat
 type OpT    = CMat

@@ -24,7 +24,7 @@ unitaryV mat =
         rowLen v = sqrt . V.sum $ V.map (\x -> x * conjugate x) v
         allLens = V.map rowLen rowsVec
         retQOp = buildRowQOp allLens
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length rowsVec)) :: Double)
+        numQbits = ceil_log2 (V.length rowsVec)
     in
         retQOp ⊗ (Id numQbits)
 
@@ -38,7 +38,7 @@ unitaryU mat =
         rowsVec = getRows (conj mat)
         uBlocks = (V.map buildRowQOp rowsVec)
         -- Pad with I_n to 2^n length
-        numQbits = ceiling (logBase 2 (fromIntegral (V.length uBlocks)) :: Double)
+        numQbits = ceil_log2 (V.length uBlocks)
         uBlocksPadded = padToPowerOf2 numQbits (Id numQbits) uBlocks
         -- Build the direct sums
         dsQOp = foldBalanced uBlocksPadded DirectSum
@@ -77,7 +77,7 @@ createRotations level vs
             -- Id 1 placeholders so foldBalanced can fold a balanced binary DirectSum
             -- tree. The placeholder branches correspond to indices with zero amplitude.
             leafOps    = V.fromList (map (createQOp level) vs)
-            nQubits    = ceiling (logBase 2 (fromIntegral (V.length leafOps)) :: Double)
+            nQubits    = ceil_log2 (V.length leafOps)
             leafOpsPad = padToPowerOf2 nQubits I leafOps
             accQOp     = foldBalanced leafOpsPad DirectSum
             -- Inner-node norms for the next level of the rotation tree.
@@ -152,8 +152,6 @@ condMultQb bitPattern fct initialOp =
 -}
 
 -- | Recursively split a vector into power-of-2 chunks of length ≤ 2.
---   This is the dual of `foldBalanced` (downward decomposition vs upward
---   combination); it produces the leaf vector used by the rotation tree.
 splitList :: V.Vector ComplexT -> [V.Vector ComplexT]
 splitList vs = go [vs]
   where

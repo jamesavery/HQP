@@ -38,7 +38,7 @@ import HQP.QOp.Syntax
 import HQP.QOp.HelperFunctions 
 import HQP.PrettyPrint.PrettyMatrix 
 import HQP.PrettyPrint.PrettyOp
-import HQP.QOp.MatrixSemantics (CMat)
+import HQP.QOp.MatrixSemantics (CMat, CVec)
 import qualified HQP.QOp.MatrixSemantics as MS
 import qualified Data.PQueue.Prio.Min as PriorityQ
 
@@ -56,7 +56,6 @@ import GHC.Stack (HasCallStack, callStack, prettyCallStack)
 type StateT = MPS
 type WorkT  = MPS
 data OpT    = OpT { opQubits :: !Int, runOp :: MPS -> MPS }
-type CVec   = H.Vector ComplexT
 
 apply :: OpT -> StateT -> StateT
 apply (OpT _ f) x = f x
@@ -937,8 +936,13 @@ measureAllDiag psi rng
           (vecsOut, renorm, physOuts, rng') = measureAllDiagVecs vecs rng
           n        = nSites psi
           newSites = V.zipWith updateSiteFromVec (sites psi) vecsOut
+          -- Post-projection: state magnitude is |old_scalar · ⟨s|ψ_internal⟩|.
+          -- We want unit norm. The renorm factor from the raw entry is
+          -- 1/|⟨s|ψ_internal⟩|, so setting scalar = renorm gives a state of
+          -- magnitude 1 regardless of the original scalar (phase is
+          -- unobservable post-collapse).
           psi'     = psi { sites = newSites
-                         , scalar = renorm * scalar psi
+                         , scalar = renorm
                          }
           bits = V.replicate n False V.//
                    [ (phys2log psi ! p, b) | (p, b) <- zip [0..] physOuts ]

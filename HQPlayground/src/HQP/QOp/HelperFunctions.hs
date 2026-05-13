@@ -90,6 +90,14 @@ integerlog2 = integerLog2'
 pow2 :: Nat -> Nat
 pow2 n = 1 `shiftL` n
 
+-- | ceil_log2 m = ⌈log2 m⌉ for m >= 1; the smallest k with pow2 k >= m.
+--   I.e. the number of bits needed to index m distinct items: 1→0, 2→1, 3→2, 4→2, 5→3, ...
+--   Returns 0 for m <= 1 (defensive; log2 0 is undefined).
+ceil_log2 :: (FiniteBits a, Integral a) => a -> Nat
+ceil_log2 m
+  | m <= 1    = 0
+  | otherwise = ilog2 (m - 1) + 1
+
 evenOdd :: [a] -> ([a],[a])
 evenOdd [] = ([],[])
 evenOdd [x] = ([x],[])

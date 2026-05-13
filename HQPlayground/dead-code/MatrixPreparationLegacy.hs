@@ -136,3 +136,31 @@ updateInnerNodeVector pairVector accVec =
         val1     = fromMaybe 0 (pairVector V.!? 1)
         newValue = sqrt (val0 * conjugate val0 + val1 * conjugate val1)
     in V.snoc accVec newValue
+
+
+{-
+-- | Bit decomposition of n as a list of length bitStrLen, MSB-first.
+toBitString :: Int -> Int -> [Int]
+toBitString n bitStrLen
+    | n < 0     = replicate bitStrLen 0  -- Or handle error as needed
+    | otherwise =
+        let bits = unfoldr step n
+            step 0 = Nothing
+            step x = Just (fromIntegral (x `mod` 2), x `div` 2)
+            rawBits = reverse bits
+            padding = replicate (bitStrLen - length rawBits) 0
+        in take bitStrLen (padding ++ rawBits)
+
+ 
+-- | Wrap an op in a 0- or 1-conditional (X-conjugated C for bit=0).
+conditional :: Int -> QOp -> QOp
+conditional bit inQOp
+    | bit == 0 = (X ⊗ I) <> C inQOp <> (X ⊗ I)
+    | bit == 1 = C inQOp
+    | otherwise = error "Ups ... bit skal være 0 eller 1"
+
+-- | Compose conditional gates for each bit of a bit pattern.
+condMultQb :: [Int] -> (Int -> QOp -> QOp) -> QOp -> QOp
+condMultQb bitPattern fct initialOp =
+    foldr (\bit op -> fct bit op) initialOp bitPattern
+-}

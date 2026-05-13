@@ -57,6 +57,7 @@ library core
       -- Example quantum programs written in HQP:
       Programs.QFT
       Programs.MatrixPreparation
+      Programs.SparseMatrixPreparation
       Programs.MatrixArithmetic
       Programs.Qubitization
       Programs.SVT

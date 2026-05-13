@@ -10,14 +10,9 @@ import Programs.MatrixArithmetic
 import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
 
 import Control.Monad (forM_)
-
-import Data.Vector (Vector)
+ 
 import qualified Data.Vector as V
 import Data.Complex
-import Data.List
-import Data.Maybe
-
-import Debug.Trace
 
 
 printbuildRowQOpTester :: IO ()
@@ -29,28 +24,12 @@ printbuildRowQOpTester = do
 main :: IO ()
 main = do
     print (show (matrixPrepTester2 ())) 
-    --print (show (matrixPrepTester3 ())) 
-    --print (show (matrixPrepTester4 ())) 
-    --print (show (matrixPrepTester5 ())) 
-    --printS $ ( (matrixPrepTester5 ()))
-    --printS $ ( (productTester ()))
-    -- print (show (productTester ())) --DENNE GIVER MÆRKELIGT OUTPUT. VIS FREM
-    --print (show (sumTester ()))
-    -- printbuildRowQOpTester
-    -- printS $ (directSumTest ()) -- DENNE GIVER VIST OGSÅ MÆRKELIGT OUTPUT
- 
-
-directSumTest :: () -> StateT
-directSumTest () =
-    let 
-        a = (X ⊕ X) ⊕ (X ⊕ X)
-    in
-        trace(showOp a) $
-        apply (evalOp a)  (ket [1,0,1])
-
-processPairTest :: QOp -> QOp -> QOp
-processPairTest x y = DirectSum x y
-
+    print (show (matrixPrepTester3 ())) 
+    print (show (matrixPrepTester4 ())) 
+    print (show (matrixPrepTester5 ())) 
+    print (show (productTester ())) 
+    print (show (sumTester ()))
+    printbuildRowQOpTester
 
 sumTester :: () -> [[ComplexT]]
 sumTester () =
@@ -78,7 +57,7 @@ sumTester () =
         -- Sum encoding
         mat1QOp = matrixPrep matIn1norm
         mat2QOp = matrixPrep matIn2norm
-        sumEncQOp = sumEncoding 1 normQOp mat1QOp mat2QOp
+        sumEncQOp = sumEncoding normQOp mat1QOp mat2QOp
         matQOt = evalOp $ sumEncQOp
 
         normFactor = (norm_Frob matIn1) + (norm_Frob matIn2)
@@ -103,6 +82,7 @@ sumTester () =
         matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
     in 
         toLists (matOut - (matIn1 + matIn2)) --Forskellen sendes videre
+
 
 
 productTester :: () -> [[ComplexT]]
@@ -148,25 +128,25 @@ buildRowQOpTester =
         resQOp2 = buildRowQOp (V.fromList [1:+1,2])      
         rowQOt2 = evalOp resQOp2
         -- Calculate the normalization factor and apply the operator
-        finalState2 = sqrt(1^2 + 1^2 + 2^2) .* (apply rowQOt2 (ket ([0])))
+        finalState2 = sqrt(1**2 + 1**2 + 2**2) .* (apply rowQOt2 (ket ([0])))
 
         -- 3 dim
         resQOp3 = buildRowQOp (V.fromList [1,2,3])      
         rowQOt3 = evalOp resQOp3
         -- Calculate the normalization factor and apply the operator
-        finalState3 = sqrt(1^2 + 2^2 + 3^2) .* (apply rowQOt3 (ket ([0,0])))
+        finalState3 = sqrt(1**2 + 2**2 + 3**2) .* (apply rowQOt3 (ket ([0,0])))
 
         -- 4 dim
         resQOp4 = buildRowQOp (V.fromList [1,2,3,4])      
         rowQOt4 = evalOp resQOp4
         -- Calculate the normalization factor and apply the operator
-        finalState4 = sqrt(1^2 + 2^2 + 3^2 + 4^2) .* (apply rowQOt4 (ket ([0,0])))
+        finalState4 = sqrt(1**2 + 2**2 + 3**2 + 4**2) .* (apply rowQOt4 (ket ([0,0])))
 
         -- 5 dim
         resQOp5 = buildRowQOp (V.fromList [1,2,3,4,5])      
         rowQOt5 = evalOp resQOp5
         -- Calculate the normalization factor and apply the operator
-        finalState5 = sqrt(1^2 + 2^2 + 3^2 + 4^2 + 5^2) .* (apply rowQOt5 (ket ([0,0,0])))
+        finalState5 = sqrt(1**2 + 2**2 + 3**2 + 4**2 + 5**2) .* (apply rowQOt5 (ket ([0,0,0])))
 
     in
         return [finalState2,finalState3,finalState4,finalState5]
@@ -178,41 +158,33 @@ matrixPrepTester2 () =
         matData =  [[ 0.6 :+ 0.0, 0.0 :+ 0.0 ], 
                     [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]
 
+        -- Conversion to MatClassic
+        -- matIn = fromRows matData
         matIn = fromLists matData
+
+        -- Unitary encoding of the matrix
         matQOt = evalOp $ matrixPrep matIn
 
+        -- Final states on input 00 and 01
         finalState1 =  (apply matQOt (ket [0,0]))
         finalState2 =  (apply matQOt (ket [0,1]))
-        finalState3 =  (apply matQOt (ket [1,0]))
-        finalState4 =  (apply matQOt (ket [1,1]))
 
-     
-        m11 = inner  (ket [0,0]) finalState1
-        m12 = inner  (ket [0,0]) finalState2
-        m13 = inner  (ket [0,0]) finalState3
-        m14 = inner  (ket [0,0]) finalState4
+        -- The encoding is normalized
+        normMatIn = norm_Frob matIn
 
-        m21 = inner  (ket [0,1]) finalState1
-        m22 = inner  (ket [0,1]) finalState2
-        m23 = inner  (ket [0,1]) finalState3
-        m24 = inner  (ket [0,1]) finalState4
-
-        m31 = inner  (ket [1,0]) finalState1
-        m32 = inner  (ket [1,0]) finalState2
-        m33 = inner  (ket [1,0]) finalState3
-        m34 = inner  (ket [1,0]) finalState4
+        -- Checking if the matrix has been upper left corner encoded
+        -- Making sure the matrix is de-normalized
+        m11 = (normMatIn :+ 0.0) * inner (ket [0,0]) finalState1
+        m12 = (normMatIn :+ 0.0) * inner (ket [0,0]) finalState2
+        m21 = (normMatIn :+ 0.0) * inner (ket [0,1]) finalState1
+        m22 = (normMatIn :+ 0.0) * inner (ket [0,1]) finalState2
         
-        m41 = inner  (ket [1,1]) finalState1
-        m42 = inner  (ket [1,1]) finalState2
-        m43 = inner  (ket [1,1]) finalState3
-        m44 = inner  (ket [1,1]) finalState4
- 
-        matOutData = [[m11,m12,m13,m14], [m21,m22,m23,m24], [m31,m32,m33,m34], [m41,m42,m43,m44]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        -- Conversion to MatClassic and rounding (16 decimals)
+        matOutData = [[m11,m12], [m21,m22]]
+        matOut = fromLists (map (map (roundComplex 16)) matOutData)
     in 
-        toLists matOut --(subMat matOut matIn) --Forskellen sendes videre  
-
-
+        -- Check: We should have input = output here (Thee zero matrix)
+        toLists (matOut - matIn)    
 
 matrixPrepTester3 :: () -> [[ComplexT]] 
 matrixPrepTester3 () =
@@ -344,9 +316,7 @@ matrixPrepTester5 () =
 
 -- Helper to round a single number to n decimal places
 roundTo :: RealFloat a => Int -> a -> a
-roundTo n x = fromIntegral (round (x * 10^n)) / (10^n)
+roundTo n x = fromIntegral (round (x * (10 ^^ n)):: Int) / (10 ^^ n)
 
--- Round both parts of a complex number
 roundComplex :: RealFloat a => Int -> Complex a -> Complex a
-roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
-
+roundComplex n (r :+ i) = roundTo n r :+ roundTo n i

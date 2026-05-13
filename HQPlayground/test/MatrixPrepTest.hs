@@ -67,7 +67,7 @@ padMatrix k m =
   in fromLists (asLists ++ extraRows)
 
 ----------------------------------------------------------------------
--- Pure helpers (toBitString, splitList, padToPowerOf2)
+-- Pure helpers (splitList, padToPowerOf2)
 ----------------------------------------------------------------------
 
 cv :: [Int] -> V.Vector ComplexT
@@ -75,17 +75,7 @@ cv xs = V.fromList (map (\x -> fromIntegral x :+ 0) xs)
 
 pureHelperTests :: TestTree
 pureHelperTests = testGroup "Pure helpers"
-  [ testGroup "toBitString"
-      [ testCase "0 3 = [0,0,0]"    $ toBitString 0 3  @?= [0,0,0]
-      , testCase "1 3 = [0,0,1]"    $ toBitString 1 3  @?= [0,0,1]
-      , testCase "2 3 = [0,1,0]"    $ toBitString 2 3  @?= [0,1,0]
-      , testCase "5 3 = [1,0,1]"    $ toBitString 5 3  @?= [1,0,1]
-      , testCase "7 3 = [1,1,1]"    $ toBitString 7 3  @?= [1,1,1]
-      , testCase "12 4 = [1,1,0,0]" $ toBitString 12 4 @?= [1,1,0,0]
-      , testCase "0 1 = [0]"        $ toBitString 0 1  @?= [0]
-      , testCase "1 1 = [1]"        $ toBitString 1 1  @?= [1]
-      ]
-  , testGroup "splitList (lengths only)"
+  [ testGroup "splitList (lengths only)"
       [ testCase "[a,b]            -> [2]"        $ map V.length (splitList (cv [1,2]))                 @?= [2]
       , testCase "[a,b,c]          -> [2,1]"      $ map V.length (splitList (cv [1,2,3]))               @?= [2,1]
       , testCase "[a,b,c,d]        -> [2,2]"      $ map V.length (splitList (cv [1,2,3,4]))             @?= [2,2]

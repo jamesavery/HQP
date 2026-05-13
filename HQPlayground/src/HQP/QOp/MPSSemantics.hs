@@ -20,7 +20,7 @@ module HQP.QOp.MPSSemantics
 -- | TODO: DONE Query bond dimension
 ---        DONE Track accumulated error
 ---        1. Implement "physical" permutation of MPS sites
----        2. R (1-qubit) θ -> single-site gate. 
+---        2. R (1-qubit) θ -> single-site gate.
 ---        3. Clean up dirty bit (is it actually needed?)
 ---        4. Write documentation
 ---        5. Optimized multi-qubit rotation and multi-controlled gates
@@ -31,19 +31,19 @@ import Data.Complex (Complex(..), conjugate, magnitude, realPart, imagPart)
 import qualified Data.Vector as V
 import Data.Vector ((!), Vector, (//))
 import Data.Bits (shiftL, testBit, (.|.),xor)
-import Data.List (foldl', sortOn)
+import Data.List (foldl')
 import Data.Array (accumArray, elems)
 import qualified Data.Set as S
 import HQP.QOp.Syntax
-import HQP.QOp.HelperFunctions 
-import HQP.PrettyPrint.PrettyMatrix 
+import HQP.QOp.HelperFunctions
+import HQP.PrettyPrint.PrettyMatrix
 import HQP.PrettyPrint.PrettyOp
 import HQP.QOp.MatrixSemantics (CMat, CVec)
 import qualified HQP.QOp.MatrixSemantics as MS
 import qualified Data.PQueue.Prio.Min as PriorityQ
 
 import Numeric.LinearAlgebra (
-  (><), (<#), (#>), atIndex, tr, rows, cols, size, diagBlock, diag, compactSVD, compactSVDTol, dot, 
+  (><), (<#), (#>), atIndex, tr, rows, cols, size, diagBlock, diag, compactSVD, compactSVDTol, dot,
   takeRows,takeColumns,dropRows,dropColumns,cmap,maxElement, fromLists, toLists
   )
 import qualified Numeric.LinearAlgebra as H
@@ -106,14 +106,14 @@ tensorMPS a b =
   let (na,nb) = (nSites a, nSites b)
       (a',b') = (moveCenterToPhys (na-1) a, moveCenterToPhys 0 b)
       l2p = V.generate (na+nb) $ \q -> if q < na then log2phys a ! q else na + log2phys b ! (q-na)
-  in MPS { scalar      = scalar a * scalar b, 
-           sites       = sites a' V.++ sites b', 
-           center_site = if na > 0 then center_site a else na + center_site b, 
-           log2phys = l2p, 
-           phys2log = invertVec l2p, 
-           dirty = Nothing, 
+  in MPS { scalar      = scalar a * scalar b,
+           sites       = sites a' V.++ sites b',
+           center_site = if na > 0 then center_site a else na + center_site b,
+           log2phys = l2p,
+           phys2log = invertVec l2p,
+           dirty = Nothing,
            --dirty = Just (Ival (na-1) (na+1)),
-           cfg = truncMax (cfg a) (cfg b) -- Worst accuracy guarantee determines overall accuracy           
+           cfg = truncMax (cfg a) (cfg b) -- Worst accuracy guarantee determines overall accuracy
            }
 
 {-| Combined truncation level: If we combine two MPS, use the least accurate truncation level -}
@@ -154,7 +154,7 @@ absorbScalarAt p m
       let c = scalar m
           s = sites m ! p
           s' = Site (c .* (a0 s)) (c .* (a1 s))
-      in m { scalar = 1:+0, sites = sites m V.// [(p,s')] } 
+      in m { scalar = 1:+0, sites = sites m // [(p,s')] }
 
 markDirtyIval :: Interval -> MPS -> MPS
 markDirtyIval i m = m { dirty = Just $ maybe i (hull i) (dirty m) }
@@ -166,7 +166,7 @@ clearDirty m = m { dirty = Nothing }
 (.*.) = (H.<>) -- HMatrix <> conflicts with Prelude.<>
 
 innerMPS :: HasCallStack => WorkT -> WorkT -> ComplexT
-innerMPS x0 y0 = -- trace ("innerMPS(" ++ showState x0 ++ ", " ++ showState y0 ++ ")") $      
+innerMPS x0 y0 = -- trace ("innerMPS(" ++ showState x0 ++ ", " ++ showState y0 ++ ")") $
   withSameFrame "innerMPS" x0 y0 $ \x y ->
   let n  = nSites x
       (sx, sy) = (scalar x, scalar y)
@@ -175,12 +175,12 @@ innerMPS x0 y0 = -- trace ("innerMPS(" ++ showState x0 ++ ", " ++ showState y0 +
         let Site xa0 xa1 = sites x ! p
             Site ya0 ya1 = sites y ! p
             --dims xs = map (\m -> (rows m, cols m)) xs
-            term xs ys = --trace(show $ dims [xs,tr xs,e,ys]) $ 
+            term xs ys = --trace(show $ dims [xs,tr xs,e,ys]) $
                         ys .*. e .*. tr xs -- Contract with accumulator. Why are dims reversed at this point?
-        in term xa0 ya0 + term xa1 ya1 -- Contract over 0,1 
+        in term xa0 ya0 + term xa1 ya1 -- Contract over 0,1
       dotprod = conjugate sx * sy * (e0 `atIndex` (0,0))
-  in 
-    --trace("innerMPS = " ++ show dotprod) 
+  in
+    --trace("innerMPS = " ++ show dotprod)
     dotprod
 
 instance HilbertSpace WorkT where
@@ -192,12 +192,12 @@ instance HilbertSpace WorkT where
   (.-) ψ φ = addMPS ψ (((-1):+0) .* φ)
 
   inner = innerMPS
-  normalize ψ = let 
-     nrm = norm ψ 
-    in 
+  normalize ψ = let
+     nrm = norm ψ
+    in
       if nrm < tol (cfg ψ) then ψ else ((1/nrm):+0) .* ψ
-  
-data Trunc = Exact | Truncate { maxBond :: !Int, svd_r :: !Double, profile :: Maybe ProfileCfg } 
+
+data Trunc = Exact | Truncate { maxBond :: !Int, svd_r :: !Double, profile :: Maybe ProfileCfg }
         deriving (Show,Eq)
 
 data EvalCfg    = EvalCfg { trunc :: !Trunc, tol :: !Double } deriving (Show,Eq)
@@ -257,7 +257,7 @@ applyPermute base π m =
       sl'  = V.fromList [ sl ! k | k <- π ]
       l2p' = l2p // [ (base+i, sl' ! i) | i <- [0..n-1] ]
       p2l' = invertVec l2p'
-  in m { log2phys = l2p', 
+  in m { log2phys = l2p',
          phys2log = p2l' }
 
 -- small matrix helpers
@@ -265,7 +265,7 @@ hcat, vcat :: CMat -> CMat -> CMat
 hcat = (H.|||)
 vcat = (H.===)
 
-{-| Dense matrix representation of two adjacent sites 
+{-| Dense matrix representation of two adjacent sites
                [ A0 ]
      Θ2(A,B) = [ A1 ] [B0 B1] -}
 theta2 :: Site -> Site -> CMat
@@ -279,26 +279,26 @@ diagMulRight m v = m * (H.complex . H.asRow $ v)
 
 svd_compact :: EvalCfg -> CMat -> (CMat, H.Vector Double, CMat, Double)
 svd_compact cfg m = case trunc cfg of
-  Exact -> let 
+  Exact -> let
               (u,s,v) = compactSVD m
             in (u, s, v, 0)
-  
-  Truncate{maxBond,svd_r, profile} -> 
-    let 
+
+  Truncate{maxBond,svd_r, profile} ->
+    let
       (u,s,v) = svd profile m
       [u',v'] = H.takeColumns chi <$> [u,v] -- Truncate internal bond dimension to χ
-      error_bound = case profile of 
+      error_bound = case profile of
         Just _  -> H.sumElements (H.subVector chi (size s - chi) (s*s))
         Nothing -> 0
 
--- If we track errors, we need to calculate all nonzero singular values        
+-- If we track errors, we need to calculate all nonzero singular values
       svd (Just _) = compactSVD ; svd Nothing = compactSVDTol svd_r
       svd_tol      = svd_r*g*epsilon*k where g = H.norm_Inf s
                                              k = fromIntegral (max (rows m) (cols m))
       chi          = min maxBond (firstBelow svd_tol s)
     in (u', s, v', error_bound)
-    
-     
+
+
 
 updateProfile :: EvalCfg -> Int -- χ (new bond dim)
                 -> Double         -- error ( ∑ σ_i^2 for discarded singular values σ)
@@ -316,21 +316,21 @@ moveRight :: Int -> WorkT -> WorkT
 moveRight j m
   | j < 0 || j+1 >= nSites m = error "moveRight"
   | otherwise =
-      let 
+      let
           (a, b)        = (sites m ! j, sites m ! (j+1))
           (dl, dr)      = (rows (a0 a), cols (a0 b)) -- External bond dimensions
-          (u,s,v,δ) = svd_compact (cfg m) (theta2 a b) -- compactSVD (exact or tol truncated) 
-          
+          (u,s,v,δ) = svd_compact (cfg m) (theta2 a b) -- compactSVD (exact or tol truncated)
+
           -- Update profiling statistics + track the error bound
           cfg' = updateProfile (cfg m) (size s) δ
 
-          -- Absorb singular values into B'. Θ = U S V† = A' B'  =>  B' = S V†           
-          sv   = diagMulLeft s (tr v)          
+          -- Absorb singular values into B'. Θ = U S V† = A' B'  =>  B' = S V†
+          sv   = diagMulLeft s (tr v)
           a'   = uncurry Site (split2x1 dl u) -- Left Isometry A'
           b'   = uncurry Site (split1x2 dr sv)
-          
-      in m { sites = sites m V.// [(j,a'),(j+1,b')], center_site = j+1, cfg = cfg' }
--- factor to moveCenter 
+
+      in m { sites = sites m // [(j,a'),(j+1,b')], center_site = j+1, cfg = cfg' }
+-- factor to moveCenter
 moveLeft :: Int -> WorkT -> WorkT
 moveLeft j m
   | j <= 0 || j >= nSites m = error "moveLeft"
@@ -342,50 +342,50 @@ moveLeft j m
 
           -- Update profiling statistics + track the error bound
           cfg' = updateProfile (cfg m) (size s) δ
-          
+
           -- Absorb singular values into A'. Θ = U S V† = A' B'  =>  A' = U S
           us  = diagMulRight u s
           a'  = uncurry Site (split2x1 dl us)
           b'  = uncurry Site (split1x2 dr (tr v))
-      in m { sites = sites m V.// [(i,a'),(j,b')], center_site = j-1, cfg = cfg' }
+      in m { sites = sites m // [(i,a'),(j,b')], center_site = j-1, cfg = cfg' }
 
 
 -- TODO: This can be done cheaper by QR-decomposition and setting the dirty bit.
 --       If inv(p) is quadratic, we can reduce to O(n^2) QR's and O(n) SVD's.
 swapSites :: WorkT -> Int -> WorkT
-swapSites psi j  = let 
+swapSites psi j  = let
     n = nSites psi
   in
     if j < 0 || j+1 >= n then error "swapSites"
-    else 
+    else
       let (a,  b)  = (sites psi ! j, sites psi ! (j+1))
           (dl, dr) = (rows (a0 a), cols (a0 b))
 
           (a0b0,a0b1,
            a1b0,a1b1) = split2x2 dl dr $ theta2 a b
-          
+
           theta' = H.fromBlocks [[a0b0,a1b0],
                                  [a0b1,a1b1]] -- Swap off-diagonal blocks
-          
+
           (u,s,v,δ) = svd_compact (cfg psi) theta'
 
           a' = uncurry Site (split2x1 dl u)
           sv = diagMulLeft s (tr v)
           b' = uncurry Site (split1x2 dr sv)
 
-          cfg' = updateProfile (cfg psi) (size s) δ          
-      in psi { sites = sites psi V.// [(j,a'),(j+1,b')], cfg = cfg' }
+          cfg' = updateProfile (cfg psi) (size s) δ
+      in psi { sites = sites psi // [(j,a'),(j+1,b')], cfg = cfg' }
 
 permutePhysicalSwaps :: WorkT -> [Int] -> WorkT
 permutePhysicalSwaps = foldl' swapSites -- inv(pi) swaps (w/ SVD), so O(n^2 χ^3) worst case.
 
 -- | Reorder the "physical" qubit sites to match the logical qubit order. This is needed before
---   adding two MPS together. 
+--   adding two MPS together.
 normalizeSiteOrder :: WorkT -> WorkT
 normalizeSiteOrder psi =
   let swaps = permutationSwaps (phys2log psi)
       psi'  = permutePhysicalSwaps psi swaps
-      ident = V.generate (nSites psi) id 
+      ident = V.generate (nSites psi) id
   in psi' { log2phys = ident, phys2log = ident }
 
 moveCenterToPhys :: Int -> WorkT -> WorkT
@@ -411,7 +411,7 @@ apply1Phys (u00,u01,u10,u11) p m =
   let s = sites m ! p
       a0' = u00 .* (a0 s) + u01 .* (a1 s)
       a1' = u10 .* (a0 s) + u11 .* (a1 s)
-  in markDirtyIval (singletonIval p) $ m { sites = sites m V.// [(p, Site a0' a1')] }
+  in markDirtyIval (singletonIval p) $ m { sites = sites m // [(p, Site a0' a1')] }
 
 apply1Logical :: Int -> Int -> Gate1 -> WorkT -> WorkT
 apply1Logical base k u m = apply1Phys u (log2phys m ! (base+k)) m
@@ -435,13 +435,13 @@ axisPaulis n = go (1:+0) where
     X         -> (ϕ, [X])
     Y         -> (ϕ, [Y])
     Z         -> (ϕ, [Z])
-    
+
     Tensor a b ->
       let (ϕ1,p1) = axisPaulis (op_qubits a) a
           (ϕ2,p2) = axisPaulis (op_qubits b) b
       in (ϕ*ϕ1*ϕ2, p1++p2)
 
-    -- TODO: Allow Compose 
+    -- TODO: Allow Compose
 
 
     Adjoint a -> let (ϕ1,ps) = axisPaulis n a in (conjugate ϕ * ϕ1, ps)
@@ -452,7 +452,7 @@ applyPauliString :: Int -> QOp -> WorkT -> (ComplexT, WorkT, Interval)
 applyPauliString base axis m =
   let n = op_qubits axis
       (ϕ, ops) = axisPaulis n axis
-      actIdx = op_support axis      
+      actIdx = op_support axis
       phys   = [ log2phys m ! (base+i) | i <- S.toList actIdx ]
       iSupp = case phys of
                 [] -> singletonIval (log2phys m ! base)
@@ -502,18 +502,24 @@ addLocal (Ival l0 r0) ψ0 φ0 = withSameFrame "addLocal" ψ0 φ0 $ \ψ φ ->
         (ψ1,φ1) = (absorbScalarAt l ψ, absorbScalarAt l φ)
         (sψ, sφ) = (sites ψ1, sites φ1)
 
-        mk p -- TODO: simplify
-          | p < l || p > r = sψ ! p    -- Outside supp(a b^{-1}) caller promises ψ[p] = φ[p]
-          | l == r = let a = sψ ! p; b = sφ ! p -- Singleton support TODO: check formula
-                     in Site (a0 a + a0 b) (a1 a + a1 b)
-          | p == l = let a = sψ ! p; b = sφ ! p -- Left edge: horizontal entry Dl x (2Dr)
-                     in Site (hcat (a0 a) (a0 b)) (hcat (a1 a) (a1 b))
-          | p == r = let a = sψ ! p; b = sφ ! p -- Right edge: vertical exit (2Dl) x Dl
-                     in Site (vcat (a0 a) (a0 b)) (vcat (a1 a) (a1 b))
-          | otherwise = let a = sψ ! p; b = sφ ! p -- Internal: block diagonal (2Dl) x (2Dl)
-                      in Site (diagBlock [a0 a, a0 b]) (diagBlock [a1 a, a1 b])
+        -- Inside [l, r], combine ψ.site and φ.site by a position-dependent
+        -- combinator: singleton support adds; left edge concatenates
+        -- horizontally (entering Dl×2Dr); right edge concatenates vertically
+        -- (exiting 2Dl×Dr); internal sites form a 2×2 block diagonal.
+        -- Outside [l, r] the caller promised ψ.site p == φ.site p, so we
+        -- take ψ.
+        mk p
+          | p < l || p > r = sψ ! p
+          | otherwise =
+              let a = sψ ! p; b = sφ ! p
+                  combine = case (compare p l, compare p r) of
+                    (EQ, EQ) -> (+)                      -- singleton support
+                    (EQ, _ ) -> hcat                     -- left edge
+                    (_,  EQ) -> vcat                     -- right edge
+                    _        -> \x y -> diagBlock [x, y] -- internal
+              in Site (combine (a0 a) (a0 b)) (combine (a1 a) (a1 b))
 
-        out = ψ1 { scalar = 1:+0, 
+        out = ψ1 { scalar = 1:+0,
                    sites  = V.generate (nSites ψ1) mk }
   in compressRange (Ival l r) out
 
@@ -531,7 +537,7 @@ addMPS ψ φ =
 toSparseMat :: (HasWork t) => Double -> Int -> t -> SparseMat
 toSparseMat eps maxTerms t0 =
   let mps  = moveCenterToPhys 0 (toWork t0) -- ensures partial path amplitudes are strict bounds (yielding exact largest amplitudes)
-      n    = nSites mps 
+      n    = nSites mps
       dim  = 2^(fromIntegral n :: Integer)
       eps2 = eps * eps
 
@@ -550,8 +556,8 @@ toSparseMat eps maxTerms t0 =
             extend1 (s,a) (!idx,!v) beam0 =
               let !v' = v <# a
                   !w2 = realPart $ dot v' v'
-              in  if w2 <= eps2 
-                    then beam0 -- Continuing on this path cannot yield amplitude larger than eps2 
+              in  if w2 <= eps2
+                    then beam0 -- Continuing on this path cannot yield amplitude larger than eps2
                     else let !idx' = idx .|. (s `shiftL` bitpos)   -- Feasible candidate:
                          in  pushTopK maxTerms w2 (idx', v') beam0 -- push to top-k priority queue
 
@@ -566,7 +572,7 @@ toSparseMat eps maxTerms t0 =
 
       finals = -- Branch and bound on path through sites from left to right
         foldl' step [(0 :: Integer, H.fromList [scalar mps])] [0 .. n-1]
-      
+
       nz = [ ((i,0), v `atIndex` 0) | (i,v) <- finals ]
   in SparseMat ((dim,1), nz)
 
@@ -640,30 +646,30 @@ projectCtrl p one m =
 --   Produces an *unnormalized* post-measurement state.
 projectCenter :: Int -> Bool -> MPS -> MPS
 projectCenter p b st =
-  let Site x0 x1 = sites st V.! p
+  let Site x0 x1 = sites st ! p
       (y0,y1)    = if b then (zeros_like x0, x1) else (x0, zeros_like x1)
-  in st { sites = sites st V.// [(p, Site y0 y1)]
+  in st { sites = sites st // [(p, Site y0 y1)]
         , dirty = Just (singletonIval p)
         }
 
 measureProjection :: HasCallStack => Int -> Int -> Int -> OpT
 measureProjection arity k out = OpT arity $ \t0 ->
   let st0 = compressIfDirty t0
-      p   = log2phys st0 V.! k
+      p   = log2phys st0 ! k
       st2 = projectCenter p (out==1) st0
       st3 = clearDirty (compressRange (singletonIval p) st2)
   in st3
 
 
-  
+
 zeros_like :: CMat -> CMat
 zeros_like x = H.konst (0:+0) (rows x, cols x)
 
--- | TODO: Simplify 
+-- | TODO: Simplify
 -- | TODO: Clean up compressIfDirty mess.
 measure1 :: HasCallStack => (StateT, Outcomes, RNG) -> Int -> (StateT, Outcomes, RNG)
 measure1 (st, outs, u:us) k = --trace("measure1 on qubit " ++ show k ++ " of state " ++ showState st) $
-  let 
+  let
       st0 = compressIfDirty st
       p   = log2phys st0 ! k
       st1 = moveCenterToPhys p st0
@@ -678,7 +684,7 @@ measure1 (st, outs, u:us) k = --trace("measure1 on qubit " ++ show k ++ " of sta
          inv  = (1 / sqrt pb) :+ 0
          y0   = if b then zeros_like x0 else inv .* x0
          y1   = if b then inv .* x1 else zeros_like x1
-         st2  = st1 { sites = sites st1 V.// [(p, Site y0 y1)], dirty = Just (singletonIval p), cfg = cfg st1 }
+         st2  = st1 { sites = sites st1 // [(p, Site y0 y1)], dirty = Just (singletonIval p), cfg = cfg st1 }
          st3  = clearDirty (compressRange (singletonIval p) st2)
      in (st3, b:outs, us)
 measure1 (_,_,[]) _ = error "measure1: empty RNG"
@@ -706,7 +712,7 @@ sampleAllW psi0 rng0
           vInit = H.flatten bEnd
           (_v,   rng2, leftPairs)  =
             foldl' leftStep  (vInit, rng1, []) [c-1, c-2 .. 0]
-          bits = V.replicate n False V.// (rightPairs ++ leftPairs)
+          bits = V.replicate n False // (rightPairs ++ leftPairs)
           outs = [ bits ! k | k <- [0 .. n-1] ]
       in (outs, rng2)
   where
@@ -822,7 +828,7 @@ buildRChain chi vecs =
       go p acc | p < 0     = acc
                | otherwise = let r' = if p == n-1 then jOnes
                                                   else (gs ! (p+1)) * (acc ! (p+1))
-                             in go (p-1) (acc V.// [(p, r')])
+                             in go (p-1) (acc // [(p, r')])
   in go (n-1) (V.replicate n jOnes)
 
 -- | Sample all qubits from a diagonal-MPS given only per-site vector pairs.
@@ -909,7 +915,7 @@ measureAllDiagVecs vecs rng0
            else let bit = r * tot >= w0
                     l'  = if bit then h1 else h0
                     vp' = if bit then (zerof, f1) else (f0, zerof)
-                in (l', rs, bit : acc, vs V.// [(p, vp')])
+                in (l', rs, bit : acc, vs // [(p, vp')])
 
 -- | Sample-only all-qubit measurement specialized to diagonal MPS.
 --   Asserts diagonality on entry. Outcomes returned in logical order.
@@ -920,7 +926,7 @@ sampleAllDiag psi rng
       let vecs           = V.map siteVec (sites psi)
           (physOuts, rng') = sampleAllDiagVecs vecs rng
           n              = nSites psi
-          bits = V.replicate n False V.//
+          bits = V.replicate n False //
                    [ (phys2log psi ! p, b) | (p, b) <- zip [0..] physOuts ]
           outs = [ bits ! k | k <- [0 .. n-1] ]
       in (outs, rng')
@@ -944,7 +950,7 @@ measureAllDiag psi rng
           psi'     = psi { sites = newSites
                          , scalar = renorm
                          }
-          bits = V.replicate n False V.//
+          bits = V.replicate n False //
                    [ (phys2log psi ! p, b) | (p, b) <- zip [0..] physOuts ]
           outs = [ bits ! k | k <- [0 .. n-1] ]
       in (psi', outs, rng')
@@ -961,14 +967,14 @@ supportInterval :: WorkT -> Int -> QOp -> Interval
 supportInterval st base op =
   let supL = S.toList (op_support op)
       ps   = [ log2phys st ! (base+q) | q <- supL ]
-  in case sortOn id ps of
+  in case ps of
        [] -> singletonIval (log2phys st ! base)
-       xs -> Ival (head xs) (last xs)
+       _  -> Ival (minimum ps) (maximum ps)
 
 -- evaluator
 evalOp :: QOp -> OpT
 evalOp op = OpT (op_qubits op) (evalOpAtW 0 op)
-  
+
 
 evalOpAtW :: HasCallStack => Int -> QOp -> WorkT -> WorkT
 evalOpAtW base op st = case op of
@@ -983,16 +989,16 @@ evalOpAtW base op st = case op of
     let p = 0.5:+0.5
         m = 0.5:+(-0.5)
     in apply1Logical base 0 (p, m, m, p) st
-  
+
   Tensor a b ->
     let st1 = evalOpAtW base a st
     in evalOpAtW (base + op_qubits a) b st1
-  
+
   Compose a b ->
      evalOpAtW base a (evalOpAtW base b st)
-  
+
   Adjoint a -> evalOpAtW base (dagger a) st
-  
+
   R axis θ
     | θ == 0 -> st
     | otherwise ->
@@ -1004,7 +1010,7 @@ evalOpAtW base op st = case op of
             ψ1 = c .* st
             ψ2 = ((-iC)*s*phi) .* pst   -- exp(-iπθ/2 · P) = c·I − i·s·P
         in addLocal iSupp ψ1 ψ2
-  
+
   C a ->
     let ctrlP  = log2phys st ! base
         ctrlIv = singletonIval ctrlP
@@ -1012,9 +1018,9 @@ evalOpAtW base op st = case op of
                    then ctrlIv                          -- empty support: stay at control bit
                    else supportInterval st (base+1) a
         iHull  = hull ctrlIv iA
-        b0     = projectCtrl ctrlP False st
-        b1     = evalOpAtW  (base+1) a (projectCtrl ctrlP True st)
-    in addLocal iHull b0 b1
+        psi0   = projectCtrl ctrlP False st
+        psi1   = evalOpAtW  (base+1) a (projectCtrl ctrlP True st)
+    in addLocal iHull psi0 psi1
 
   DirectSum a b ->
     let ctrlP  = log2phys st ! base
@@ -1022,13 +1028,13 @@ evalOpAtW base op st = case op of
         iA     = if S.null (op_support a) then ctrlIv else supportInterval st (base+1) a
         iB     = if S.null (op_support b) then ctrlIv else supportInterval st (base+1) b
         iHull  = hull ctrlIv (hull iA iB)
-        b0     = evalOpAtW (base+1) a (projectCtrl ctrlP False st)
-        b1     = evalOpAtW (base+1) b (projectCtrl ctrlP True  st)
-    in addLocal iHull b0 b1
+        psi0   = evalOpAtW (base+1) a (projectCtrl ctrlP False st)
+        psi1   = evalOpAtW (base+1) b (projectCtrl ctrlP True  st)
+    in addLocal iHull psi0 psi1
 
 -- Steps / programs -- MOVE TO COMMON MODULE.
 evalStep :: HasCallStack => (StateT, Outcomes, RNG) -> Step -> (StateT, Outcomes, RNG)
-evalStep (st, outs, rng) step = -- trace("step "++showStep step ++ " on " ++ showState st) $ 
+evalStep (st, outs, rng) step = -- trace("step "++showStep step ++ " on " ++ showState st) $
   case step of
   Unitary op -> (apply (evalOp op) st, outs, rng)
   Measure ks -> foldl' measure1 (st, outs, rng) (reverse ks)
@@ -1038,7 +1044,7 @@ evalStep (st, outs, rng) step = -- trace("step "++showStep step ++ " on " ++ sho
         (st', os, rng') = evalStep (st, [], rng) (Measure ks)
         -- List of outcomes xor values for each initialized qubit
         corrections     = zipWith xor os vs
-        -- Now we build the full list, including unaffected qubits        
+        -- Now we build the full list, including unaffected qubits
         corrFull        = accumArray xor False (0,n-1) (zip ks corrections)
         corrOp          = foldl (⊗) One [ if c then X else I | c <- elems corrFull ]
       in (evalStep) (st', outs, rng') (Unitary corrOp)
@@ -1051,7 +1057,7 @@ bondDimensions :: MPS -> V.Vector Int
 bondDimensions mps = bondDim <$> (sites mps)
   where
     bondDim (Site a0 _) = rows a0
-  
+
 
 maxBondDimension :: MPS -> Int
 maxBondDimension mps = maximum . V.toList . bondDimensions $ mps

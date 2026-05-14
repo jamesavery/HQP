@@ -185,6 +185,11 @@ executable AlgebraTest
   main-is: AlgebraTest.hs
   other-modules: Generators
 
+executable QFTTest
+  import: test-common
+  main-is: QFTTest.hs
+  other-modules: Generators
+
 executable SamplingTest
   import: test-common
   build-depends:

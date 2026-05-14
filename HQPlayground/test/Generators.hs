@@ -23,6 +23,7 @@ module Generators
   , RandomQOp(..)
   , RotGen(..)
   , Perm(..)
+  , QFTSize(..)
     -- * Shrinking
   , shrinkQOp
   ) where
@@ -202,3 +203,11 @@ instance Arbitrary Perm where
   arbitrary = do
     n <- choose (1, 5)
     Perm <$> genPermutation n
+
+-- | Qubit count for QFT properties. Bounded at 6 so the 2^n × 2^n reference
+--   matrices stay cheap under QuickCheck.
+newtype QFTSize = QFTSize Int
+instance Show QFTSize where show (QFTSize n) = "QFTSize " ++ show n
+instance Arbitrary QFTSize where
+  arbitrary = QFTSize <$> choose (1, 6)
+  shrink (QFTSize n) = [ QFTSize n' | n' <- [1 .. n - 1] ]

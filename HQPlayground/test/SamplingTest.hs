@@ -495,52 +495,24 @@ qcTests = testGroup "QC over random circuits"
 -- Diagonal-MPS specialization
 ------------------------------------------------------------------------
 
--- | A two-term diagonal-MPS state (χ=2) built directly from vector pairs.
---   Term 1: |0..0>;  Term 2: c · |1..1>.  Amplitude on |s> is non-zero
---   only for the all-zero or all-one bitstring.
-diagTwoTermVecs :: Int -> ComplexT -> V.Vector (H.Vector ComplexT, H.Vector ComplexT)
-diagTwoTermVecs n c =
-  let chi = 2
-      -- f_p(0) = (1, 0) for p=0 carries term 1, else 1 in both slots
-      -- f_p(1) = (0, c) similarly
-      -- Convention: term α carries weight everywhere. Pick simplest:
-      --   f_p(0,α) = [1,0][α]   (only α=0 has |0> contribution)
-      --   f_p(1,α) = [0,1][α]   (only α=1 has |1> contribution)
-      -- Then ⟨0..0|ψ⟩ = ∏ f_p(0,0) = 1; ⟨1..1|ψ⟩ = ∏ f_p(1,1) = 1.
-      -- Set last site's f_p(1) = [0,c] to scale term 2 by c.
-      f0_ordinary = H.fromList [1:+0, 0:+0]
-      f1_ordinary = H.fromList [0:+0, 1:+0]
-      f1_last     = H.fromList [0:+0, c]
-      site k | k == n-1  = (f0_ordinary, f1_last)
-             | otherwise = (f0_ordinary, f1_ordinary)
-      _ = chi
-  in V.generate n site
-
--- | Build a diagonal MPS in standard chain form (1×χ, χ×χ diag, χ×1) from
---   per-site vector pairs.
-mkDiagMPS :: V.Vector (H.Vector ComplexT, H.Vector ComplexT) -> MPS.StateT
-mkDiagMPS vecs =
-  let n   = V.length vecs
-      mk p (v0, v1)
-        | p == 0     = MPS.Site (H.asRow v0)    (H.asRow v1)
-        | p == n-1   = MPS.Site (H.asColumn v0) (H.asColumn v1)
-        | otherwise  = MPS.Site (H.diag v0)     (H.diag v1)
-      sV   = V.imap mk vecs
-      idm  = V.generate n id
-  in MPS.MPS
-       { MPS.scalar      = 1 :+ 0
-       , MPS.sites       = sV
-       , MPS.center_site = 0
-       , MPS.log2phys    = idm
-       , MPS.phys2log    = idm
-       , MPS.dirty       = Nothing
-       , MPS.cfg         = MPS.defaultCfg
-       }
+-- | A two-term diagonal-MPS state (χ=2). Term 1: |0..0>; Term 2: c · |1..1>.
+--   Amplitude on |s> is non-zero only for the all-zero or all-one bitstring.
+--   Convention: f_p(0,α) = [1,0][α] (only α=0 has |0> contribution);
+--   f_p(1,α) = [0,1][α] (only α=1 has |1> contribution). The last site's
+--   f_p(1) is [0,c], scaling term 2 by c.
+diagTwoTerm :: Int -> ComplexT -> MPS.DiagMPS
+diagTwoTerm n c =
+  let f0_ord  = H.fromList [1:+0, 0:+0]
+      f1_ord  = H.fromList [0:+0, 1:+0]
+      f1_last = H.fromList [0:+0, c]
+      site k | k == n-1  = MPS.DiagSite f0_ord f1_last
+             | otherwise = MPS.DiagSite f0_ord f1_ord
+  in MPS.mkDiagMPS (1:+0) (V.generate n site)
 
 diagSampleVsAnalytic :: TestTree
 diagSampleVsAnalytic = testCase "sampleAllDiag matches mpsToDenseVec on 4-qubit GHZ-like" $ do
   let n      = 4
-      st     = mkDiagMPS (diagTwoTermVecs n (2 :+ 1))    -- unnormalized, |c|² = 5
+      st     = MPS.fromDiagMPS (diagTwoTerm n (2 :+ 1))  -- unnormalized, |c|² = 5
       raw    = analyticProbs st
       total  = V.sum raw
       probs  = V.map (/ total) raw                       -- normalize for comparison
@@ -564,7 +536,7 @@ empiricalHistDiag seed n k st =
 isDiagonalTests :: TestTree
 isDiagonalTests = testGroup "isDiagonalMPS predicate"
   [ testCase "GHZ-like diagonal state passes" $
-      assertBool "" (MPS.isDiagonalMPS (mkDiagMPS (diagTwoTermVecs 4 (1 :+ 0))))
+      assertBool "" (MPS.isDiagonalMPS (MPS.fromDiagMPS (diagTwoTerm 4 (1 :+ 0))))
   , testCase "Bell state from H+CX is diagonal (χ=2)" $ do
       let st = runProg bellProg (MPS.ket [0,0])
       assertBool "" (MPS.isDiagonalMPS st)
@@ -592,26 +564,26 @@ diagAgreesWithGenericCase lbl n prog = testCase lbl $ do
       d        = tvDistance hGeneric hDiag
   assertBool (lbl ++ ": TV " ++ show d) (d < 0.05)
 
--- Raw entry agreement: feeding extracted vectors to sampleAllDiagVecs should
--- give the same distribution as the MPS wrapper.
+-- Raw entry agreement: sampleDiagMPS on the DiagMPS should give the same
+-- distribution as the MPS wrapper sampleAllDiag.
 prop_raw_matches_wrapper :: Int -> Property
 prop_raw_matches_wrapper seed' =
   forAll (choose (2, 4)) $ \n ->
-    let st    = mkDiagMPS (diagTwoTermVecs n (1 :+ 1))
-        vecs  = V.map MPS.siteVec (MPS.sites st)
+    let dm    = diagTwoTerm n (1 :+ 1)
+        st    = MPS.fromDiagMPS dm
         k     = 800
         seedA = seed'
         seedB = seed' + 200
         hWrapper = empiricalHistDiag seedA n k st
-        hRaw     = empiricalHistRaw  seedB n k vecs
+        hRaw     = empiricalHistRaw  seedB n k dm
         d        = tvDistance hWrapper hRaw
     in counterexample ("n = " ++ show n ++ ", TV = " ++ show d)
                       (d < 0.10)
   where
-    empiricalHistRaw seedR n k vecs =
+    empiricalHistRaw seedR n k dm =
       let go 0 _   hist = hist
           go i rng hist =
-            let (outs, rng') = MPS.sampleAllDiagVecs vecs rng
+            let (outs, rng') = MPS.sampleDiagMPS dm rng
                 idx          = bitsToIdx outs
             in go (i-1) rng' (hist V.// [(idx, hist V.! idx + 1)])
           rng0 = randoms (mkStdGen seedR) :: [Double]
@@ -636,8 +608,7 @@ prop_raw_matches_wrapper seed' =
 --     test closure: applying the program to the random initial state must
 --     yield a diagonal MPS.
 
-data RandomDiagMPS =
-  RandomDiagMPS Int Int (V.Vector (H.Vector ComplexT, H.Vector ComplexT))
+data RandomDiagMPS = RandomDiagMPS Int Int MPS.DiagMPS
 
 instance Show RandomDiagMPS where
   show (RandomDiagMPS n chi _) =
@@ -649,12 +620,12 @@ instance Arbitrary RandomDiagMPS where
     -- For n=1 the MPS has a single 1×1 site, so χ must be 1.
     chi <- if n == 1 then return 1 else choose (1, 3)
     let genVec  = H.fromList <$> replicateM chi genComplex
-        genSite = liftA2 (,) genVec genVec
+        genSite = liftA2 MPS.DiagSite genVec genVec
     sV <- V.fromList <$> replicateM n genSite
-    return (RandomDiagMPS n chi sV)
+    return (RandomDiagMPS n chi (MPS.mkDiagMPS (1:+0) sV))
 
 diagStateFromRandom :: RandomDiagMPS -> MPS.StateT
-diagStateFromRandom (RandomDiagMPS _ _ vecs) = mkDiagMPS vecs
+diagStateFromRandom (RandomDiagMPS _ _ dm) = MPS.fromDiagMPS dm
 
 genDiagProg :: Int -> Gen Program
 genDiagProg n = do
@@ -718,16 +689,15 @@ prop_diag_born_random rdm@(RandomDiagMPS n _ _) =
           ("bad cells (first 4): " ++ show (take 4 bad))
           (null bad)
 
--- Raw entry (sampleAllDiagVecs) matches MPS wrapper (sampleAllDiag).
+-- sampleDiagMPS (raw DiagMPS entry) matches MPS wrapper sampleAllDiag.
 prop_raw_matches_wrapper_random :: RandomDiagMPS -> Property
-prop_raw_matches_wrapper_random rdm@(RandomDiagMPS n _ _) =
+prop_raw_matches_wrapper_random rdm@(RandomDiagMPS n _ dm) =
   let st    = diagStateFromRandom rdm
-      vecs  = V.map MPS.siteVec (MPS.sites st)
       k     = 1500
       hWrap = empiricalHistDiag 901 n k st
       hRaw  = let go 0 _ h = h
                   go i rg h =
-                    let (outs, rg') = MPS.sampleAllDiagVecs vecs rg
+                    let (outs, rg') = MPS.sampleDiagMPS dm rg
                         idx         = bitsToIdx outs
                     in go (i-1) rg' (h V.// [(idx, h V.! idx + 1)])
               in go k (randoms (mkStdGen 902) :: [Double]) (V.replicate (2^n) 0)

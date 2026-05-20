@@ -50,17 +50,16 @@ sqrtSVTtest () =
         matIn = fromLists matData
         matrixQubits = 1
 
-        -- Lav block encoding og sæt encQubits
+        -- Lav block encoding
         blockEnc = matrixPrep matIn
-        encQubits = 1
 
         -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits encQubits svtVec blockEnc
+        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
         svtQOt = evalOp $ svtQOp
 
         -- SVT udføres med (-1 * svtVec) ... med det formål at ...
         svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits encQubits svtVecMinus blockEnc
+        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
         svtConjQOt = evalOp $ svtConjQOp
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
@@ -105,17 +104,16 @@ evenPolySVTtest () =
         matIn = fromLists matData
         matrixQubits = 1
 
-        -- Lav block encoding og sæt encQubits
+        -- Lav block encoding
         blockEnc = matrixPrep matIn
-        encQubits = 1
 
         -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits encQubits svtVec blockEnc
+        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
         svtQOt = evalOp $ svtQOp
 
         -- SVT udføres med (-1 * svtVec) ... med det formål at ...
         svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits encQubits svtVecMinus blockEnc
+        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
         svtConjQOt = evalOp $ svtConjQOp
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
@@ -160,17 +158,16 @@ oddPolySVTtest () =
         matIn = fromLists matData
         matrixQubits = 1
 
-        -- Lav block encoding og sæt encQubits
+        -- Lav block encoding
         blockEnc = matrixPrep matIn
-        encQubits = 1
 
         -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits encQubits svtVec blockEnc
+        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
         svtQOt = evalOp $ svtQOp
 
         -- SVT udføres med (-1 * svtVec) ... med det formål at ...
         svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits encQubits svtVecMinus blockEnc
+        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
         svtConjQOt = evalOp $ svtConjQOp
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
@@ -213,17 +210,16 @@ oddHermitianSVTtest () =
         matIn = fromLists matData
         matrixQubits = 1
 
-        -- Lav block encoding og sæt encQubits
+        -- Lav block encoding
         blockEnc = matrixPrep matIn
-        encQubits = 1
 
         -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits encQubits svtVec blockEnc
+        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
         svtQOt = evalOp $ svtQOp
 
         -- SVT udføres med (-1 * svtVec) ... med det formål at ...
         svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits encQubits svtVecMinus blockEnc
+        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
         svtConjQOt = evalOp $ svtConjQOp
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
@@ -267,17 +263,16 @@ evenHermitianSVTtest () =
         matIn = fromLists matData
         matrixQubits = 1
 
-        -- Lav block encoding og sæt encQubits
+        -- Lav block encoding
         blockEnc = matrixPrep matIn
-        encQubits = 1
 
         -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits encQubits svtVec blockEnc
+        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
         svtQOt = evalOp $ svtQOp
 
         -- SVT udføres med (-1 * svtVec) ... med det formål at ...
         svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits encQubits svtVecMinus blockEnc
+        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
         svtConjQOt = evalOp $ svtConjQOp
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
@@ -314,5 +309,4 @@ roundTo n x = fromIntegral (round (x * 10^n) :: Integer) / (10^n)
 
 roundComplex :: (RealFloat a) => Int -> Complex a -> Complex a
 roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
-
 

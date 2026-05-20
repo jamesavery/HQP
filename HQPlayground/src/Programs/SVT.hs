@@ -11,7 +11,14 @@ import Data.Ord (comparing)
 import Data.Sequence (Seq(..), (><))
 import qualified Data.Sequence as Seq
 
--- This vector ... ...
+-- Calculates the SVT vector of phases
+-- Input:
+-- 1) p, q complex polynomials
+-- 2) p(x)^2 + (1 - x^2)q(x)^2 = 1 for x in [-1,1] :
+-- 3) (p even, q odd) or (p odd, q even)
+-- 4) deg(p) = deg(q) + 1
+-- Output:
+-- Real k dimensional sequence where k = deg(p)
 svtVectorPhi :: VPoly ComplexT -> VPoly ComplexT -> Seq Double
 svtVectorPhi p q =
     let
@@ -28,9 +35,23 @@ svtVectorPhi p q =
     in
        Seq.fromList ([phi0 + phiLast + d ]) >< modQspVector
 
-altPhaseMod :: Int -> Int -> Seq Double -> QOp -> QOp
-altPhaseMod matrixQubits encQubits svtVec blockEnc =
+-- This function creates the Alternating Phase Modulation Operator 
+-- It is the result of the SVT process.
+-- The operator is unitary and has the transformed singular values
+-- UA = ∑P(s_i)|v_i><v_i| when A = ∑s_i|v_i><v_i| is the input encoded matrix
+-- Input:
+-- matrixQubits n, col(A) = 2^n. So it is the log2 size of the original matrix
+-- svtVec is a real vector of phases
+-- blockEnc is the block encoding of A, that needs to have ||A|| <= 1 ... I think ...
+-- Output:
+-- 1) A unitary operator UA encoded in the same number of qubits as blockEnc
+-- 2) The singular values should correspond to UA = ∑P(s_i)|v_i><v_i|
+altPhaseMod :: Int -> Seq Double -> QOp -> QOp
+altPhaseMod matrixQubits svtVec blockEnc =
     let
+        -- Prøver med denne i stedet for encQubits
+        encQubits = (op_qubits blockEnc) - matrixQubits
+
         -- Create the phase matrices ...
         phaseOperators = fmap (phaseOpBuilder matrixQubits encQubits) svtVec 
     in

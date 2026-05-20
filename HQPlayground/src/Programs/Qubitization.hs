@@ -20,6 +20,13 @@ import qualified Data.Vector as V
 
 -- qspVectorPhi calculates the quantum signal processing vector  
 -- defined in Gilyen et al. Theorem 3.
+-- Input:
+-- 1) p, q complex polynomials
+-- 2) p(x)^2 + (1 - x^2)q(x)^2 = 1 for x in [-1,1] :
+-- 3) (p even, q odd) or (p odd, q even)
+-- 4) deg(p) = deg(q) + 1
+-- Output:
+-- Real k+1 vector where k = deg(p)
 qspVectorPhi :: VPoly ComplexT -> VPoly ComplexT -> [Double]
 qspVectorPhi p q
     | Just (0, _) <- leading p =
@@ -62,18 +69,24 @@ qspVectorPhi p q
 ------------- From real to complex polynomial-----------------------------------
 --------------------------------------------------------------------------------
 
--- Given a real polynomial satisfying the conditions:
--- ... KOMMER SENERE ... and
--- P(x)^2 <= 1 for x in [-1,1]
 -- qspPolys calculates the pair of complex polynomials satisfying the conditions in Gilyen et al. (2018) Theorem 5.
 -- The polynomials are used in the algorithm (qspVectorPhi) that finds the quantum signal processing vector.
+-- Input conditions:
+-- 1) P is a real polynomial
+-- 2) P is an even or an odd pylynomial
+-- 3) P(x)^2 <= 1 for x in [-1,1]
+-- Output conditions
+-- 1) P1, Q1 complex polynomials
+-- 2) P1(x)^2 + (1 - x^2)Q1(x)^2 = 1 for x in [-1,1] :
+-- 3) (P1 even, Q1 odd) or (P1 odd, Q1 even)
+-- 4) deg(P) = deg(Q) + 1
 qspPolys :: VPoly Rational -> (VPoly ComplexT, VPoly ComplexT)
-qspPolys realEvenPosPoly =
-        let realPolyPair = createRealPolyPair (1 - realEvenPosPoly * realEvenPosPoly)
+qspPolys realParityPoly =
+        let realPolyPair = createRealPolyPair (1 - realParityPoly * realParityPoly)
             realPoly1 = poly1 realPolyPair
             realPoly2 = poly2 realPolyPair
 
-            complexEvenPosPoly = toPoly $ V.map (\r -> fromRational r :+ 0.0) (unPoly realEvenPosPoly)
+            complexEvenPosPoly = toPoly $ V.map (\r -> fromRational r :+ 0.0) (unPoly realParityPoly)
             complexPoly1       = toPoly $ V.map (:+ 0.0) (unPoly realPoly1)
             complexPoly2       = toPoly $ V.map (:+ 0.0) (unPoly realPoly2)
 
@@ -83,10 +96,20 @@ qspPolys realEvenPosPoly =
             (pPoly, qPoly)
 
 
--- Given a real even poly A(x) with deg(A) <= 2k and A(x)>= 0 on [-1,1] 
+-- Given a real even poly p(x) with deg(p) <= 2k and p(x)>= 0 on [-1,1] 
 -- return real polys B, C as in Gilyen et al. Lemma 6.
 -- The method is a step in the construction of a suitable complex polynomial
 -- used in the qubitization algorithm
+-- Input conditions:
+-- 1) p is a real polynomial
+-- 2) p is even
+-- 3) p has degree 2k
+-- 3) p(x)^2 >= 0 for x in [-1,1]
+-- Output: a polypair (p1,q1) satisfying
+-- 1) p1, q1 real polynomials
+-- 2) (p1 even, q1 odd) or (p1 odd, q1 even)
+-- 3) degree(p1) = k, degree(q1) = k-1
+-- 4) p(x) = p1(x)^2 + (1-x^2)q1(x)^2
 createRealPolyPair :: VPoly Rational -> PolyPair
 createRealPolyPair p = 
     let 
@@ -115,6 +138,14 @@ createRealPolyPair p =
         --removeTrailingPPZeros (). Burde ikke være nødv med Data.Poly
         initialCoeff * subOnePairsProd * remainingPairsProd
 
+
+-- Input: 
+-- Complex number z i the 1.quadrant incl. the posive axis and origo
+-- Output: A polypair (p,q)
+-- 1) p, q real polynomials
+-- 2) (p even, q odd) or (p odd, q even)
+-- 3) degree(p) = k, degree(q) = k-1
+-- 4) 0 <= p(x)^2 + (1-x^2)q(x)^2
 rootToPolyPair :: ComplexT -> PolyPair
 rootToPolyPair z
     -- Case: Re z > 0 and Im z > 0

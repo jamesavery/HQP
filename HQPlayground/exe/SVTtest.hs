@@ -16,7 +16,6 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 import Data.List (sortOn)
 import Data.Ord (Down(..))
-import Foreign.Storable (Storable)
 import Data.Poly (VPoly, eval, toPoly, unPoly)
 
 
@@ -92,7 +91,7 @@ evenPolySVTtest () =
         matOutSV = sortDescendingReal $ singularValues matOut
     in 
         -- What is the maximum deviation in the SVT?
-        VS.maximum $ subtractVectors matInSVTabs matOutSV
+        VS.maximum $ matInSVTabs - matOutSV
 
 oddPolySVTtest :: () -> Double
 oddPolySVTtest () =
@@ -144,7 +143,7 @@ oddPolySVTtest () =
         matOutSV = sortDescendingReal $ singularValues matOut
     in 
         -- What is the maximum deviation in the SVT?
-        VS.maximum $ subtractVectors matInSVTabs matOutSV
+        VS.maximum $ matInSVTabs - matOutSV
 
 oddHermitianSVTtest :: () -> Double
 oddHermitianSVTtest () =
@@ -264,14 +263,8 @@ roundTo n x = fromIntegral (round (x * 10^n) :: Integer) / (10^n)
 roundComplex :: (RealFloat a) => Int -> Complex a -> Complex a
 roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
 
-
--- 1. Generalized Polynomial Evaluation
 polyEval :: (Real a, Eq b, Fractional b) => VPoly a -> b -> b
 polyEval p v = eval (toPoly (V.map (fromRational . toRational) (unPoly p))) v
-
--- 2. Generalized Vector Subtraction
-subtractVectors :: (Num a, Storable a) => VS.Vector a -> VS.Vector a -> VS.Vector a
-subtractVectors v1 v2 = VS.zipWith (-) v1 v2
 
 -- Use this helper when dealing with real-valued Double vectors
 sortDescendingReal :: VS.Vector Double -> VS.Vector Double

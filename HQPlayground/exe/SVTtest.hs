@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main where 
 
 import HQP
@@ -8,21 +9,25 @@ import Programs.Qubitization
 import Programs.SVT
 import Programs.MatrixPreparation
 
-import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
-
+import Numeric.LinearAlgebra (cmap,eigenvalues, singularValues, fromLists, norm_Frob)
 import Data.Complex
 import Data.Sequence (Seq(..))
+import qualified Data.Vector as V
+import qualified Data.Vector.Storable as VS
+import Data.List (sortOn)
+import Data.Ord (Down(..))
+import Foreign.Storable (Storable)
+import Data.Poly (VPoly, eval, toPoly, unPoly)
 
-import Data.Poly
+
 
 main :: IO ()
 main = do
     print (show (svtVectorPhiTest()))
-    print (show (sqrtSVTtest()))
-    print (show (evenPolySVTtest()))
-    print (show (oddPolySVTtest()))
-    print (show (oddHermitianSVTtest()))
-    print (show (evenHermitianSVTtest()))
+    print ("evenPolySVTtest max error: " ++show (evenPolySVTtest()))
+    print ("oddPolySVTtest max error: " ++show (oddPolySVTtest()))
+    print ("oddHermitianSVTtest max error: " ++ show (oddHermitianSVTtest()))
+    print ("evenHermitianSVTtest max error: " ++ show (evenHermitianSVTtest()))
 
 svtVectorPhiTest :: () -> Seq Double
 svtVectorPhiTest () =
@@ -32,75 +37,18 @@ svtVectorPhiTest () =
     in
         svtVectorPhi pC qC
 
-sqrtSVTtest :: () -> [[ComplexT]]
-sqrtSVTtest () =
-    let 
-        -- p(x) = x^2 giver ikke i sig selv de singulære værdier kvadreret ...men ...
-        p = [0,0,1] -- x^2 ... som skal blive til pC = (1 + i)x^2 -i (even), qC = sqrt(2)ix (odd)
-                    -- Hvilket er [0.0 :+ (-1.0),0.0 :+ 0.0,1.0 :+ 1.0]           ,[0.0 :+ 0.0,0.0 :+ sqrt(2)]
-                    -- Jeg får:   [0.0 :+ (-1.0),0.0 :+ 0.0,1.0 :+ 1.0,0.0 :+ 0.0],[0.0 :+ 0.0,0.0 :+ 1.4142135623730951,0.0 :+ 0.0]
-        (pC,qC) = qspPolys p
-        svtVec = svtVectorPhi pC qC
-
-        -- Her er en ikke-diagonal matrix med singulære værdier 2 og 1
-        normMat = (1/(2 * sqrt(2)) :+ 0.0)
-        matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
-        matData = map (map (* normMat)) matDataPre
-
-        matIn = fromLists matData
-        matrixQubits = 1
-
-        -- Lav block encoding
-        blockEnc = matrixPrep matIn
-
-        -- SVT udføres
-        svtQOp = altPhaseMod matrixQubits svtVec blockEnc
-        svtQOt = evalOp $ svtQOp
-
-        -- SVT udføres med (-1 * svtVec) ... med det formål at ...
-        svtVecMinus = fmap (* (-1)) svtVec
-        svtConjQOp = altPhaseMod matrixQubits svtVecMinus blockEnc
-        svtConjQOt = evalOp $ svtConjQOp
-
-        -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
-        -- den alternerende fasemodulerende sekvens hørende til blockEnc med svtVec hhv (-svtVec) : 
-        tempState1 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,0])) .+ (apply svtConjQOt (ket [0,0])))
-        tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
-        
-        -- De singulære normeringskonstanter skal også kvadreres:
-        finalState1 = ((norm_Frob matIn)^(2 :: Int) :+ 0) .* tempState1
-        finalState2 = ((norm_Frob matIn)^(2 :: Int) :+ 0) .* tempState2
-     
-        -- Der projiceres
-        m11 = inner  (ket [0,0]) finalState1
-        m12 = inner  (ket [0,0]) finalState2
-        m21 = inner  (ket [0,1]) finalState1
-        m22 = inner  (ket [0,1]) finalState2
-
-        -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
-        matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
-    in 
-        -- Det virker (sidst jeg prøvede :-) ... man får værdierne 4 og 1
-        toLists matOut  
-
-evenPolySVTtest :: () -> [[ComplexT]]
+evenPolySVTtest :: () -> Double
 evenPolySVTtest () =
     let 
         -- Et lige polynomium p(x) med p(x)^2 mindre end 1 for alle x i [-1,1] defineres
         p = [0,0,0.5,0,0.5] -- 0.5x^2 + 0.5x^4 
         (pC,qC) = qspPolys p
-
-        --p = [0.0 :+ (-1.0), 0.0 :+ 0.0.     , 1.0 :+ 1.0,0, 0, 0]
-        --q = [0.0 :+ 0.0   , 0.0 :+ sqrt(2.0), 0.0 :+ 0.0]
         svtVec = svtVectorPhi pC qC
 
-        -- Definer en matrix og sæt matrixQubits
-        -- Dette er en ikke-diagonal matrix med singulære værdier 2 og 1
-        normMat = (1/(2 * sqrt(2)) :+ 0.0)
-        matDataPre = [[(2.0 * sqrt(3.0) + 1.0)  :+ 0.0, (2.0 - sqrt(3.0)) :+ 0.0], [(2.0 * sqrt(3.0) - 1.0) :+ 0.0, (2.0 + sqrt(3.0)) :+ 0.0]]  
-        matData = map (map (* normMat)) matDataPre
-
+        -- Define a matrix and set matrixQubits
+        -- This is a non-diagonal matrix with singular values 0.8 and 0.6 and Frobeniusnorm 1
+        matData =  [[((4*sqrt(6) - 3*sqrt(2))/20) :+ 0.0, ((-4*sqrt(6)-3*sqrt(2))/20) :+ 0.0], 
+                    [((4*sqrt(2)+3*sqrt(6))/20) :+ 0.0, ((-4*sqrt(2)+3*sqrt(6))/20) :+ 0.0]]  
         matIn = fromLists matData
         matrixQubits = 1
 
@@ -135,13 +83,18 @@ evenPolySVTtest () =
 
         -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
+        
+        -- Calculating the transformed input SV and the output SV
+        matInSV =  singularValues matIn
+        matInSVT =  VS.map (polyEval p) matInSV
+        matInSVTabs = sortDescendingReal $ VS.map (abs) matInSVT -- Singular values are positive!
+        matOutSV = sortDescendingReal $ singularValues matOut
     in 
-        -- Virker det? Man burde få de singulære værdier 10 og 1 
-        -- ... får 10.80000000 og 1.800000001 ... hvor komme de 0.8 fra?
-        toLists matOut 
+        -- What is the maximum deviation in the SVT?
+        VS.maximum $ subtractVectors matInSVTabs matOutSV
 
-oddPolySVTtest :: () -> [[ComplexT]]
+oddPolySVTtest :: () -> Double
 oddPolySVTtest () =
     let 
         -- Et ulige polynomium p(x) med p(x)^2 mindre end 1 for alle x i [-1,1] defineres
@@ -150,10 +103,9 @@ oddPolySVTtest () =
         svtVec = svtVectorPhi pC qC
 
         -- Definer en matrix og sæt matrixQubits
-        -- Dette er en ikke-diagonal matrix med singulære værdier 0.8 og 0.6
-        matDataPre =   [[((4*sqrt(6) - 3*sqrt(2))/20) :+ 0.0, ((-4*sqrt(6)-3*sqrt(2))/20) :+ 0.0], 
+        -- Dette er en ikke-diagonal matrix med singulære værdier 0.8 og 0.6 and Frobeniusnorm 1
+        matData =   [[((4*sqrt(6) - 3*sqrt(2))/20) :+ 0.0, ((-4*sqrt(6)-3*sqrt(2))/20) :+ 0.0], 
                         [((4*sqrt(2)+3*sqrt(6))/20) :+ 0.0, ((-4*sqrt(2)+3*sqrt(6))/20) :+ 0.0]]  
-        matData = matDataPre
 
         matIn = fromLists matData
         matrixQubits = 1
@@ -172,14 +124,8 @@ oddPolySVTtest () =
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
         -- den alternerende fasemodulerende sekvens hørende til blockEnc med svtVec hhv (-svtVec) : 
-        tempState1 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,0])) .+ (apply svtConjQOt (ket [0,0])))
-        tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
-        
-        -- De singulære normeringskonstanter beregnes:
-        normSV = 0.5*(norm_Frob matIn)^(2 :: Int) + 0.5*(norm_Frob matIn)^(4 :: Int)
-
-        finalState1 = (normSV :+ 0) .* tempState1
-        finalState2 = (normSV :+ 0) .* tempState2
+        finalState1 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,0])) .+ (apply svtConjQOt (ket [0,0])))
+        finalState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1]))) 
      
         -- Der projiceres
         m11 = inner  (ket [0,0]) finalState1
@@ -187,14 +133,20 @@ oddPolySVTtest () =
         m21 = inner  (ket [0,1]) finalState1
         m22 = inner  (ket [0,1]) finalState2
 
-        -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
+        -- Den resulterende matrix
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
+        
+        -- Calculating the transformed input SV and the output SV
+        matInSV =  singularValues matIn
+        matInSVT =  VS.map (polyEval p) matInSV
+        matInSVTabs = sortDescendingReal $ VS.map (abs) matInSVT -- Singular values are positive!
+        matOutSV = sortDescendingReal $ singularValues matOut
     in 
-        -- Virker det? Man burde få de singulære værdier 0.5248 og 0.2448. Det får man 
-        toLists matOut 
+        -- What is the maximum deviation in the SVT?
+        VS.maximum $ subtractVectors matInSVTabs matOutSV
 
-oddHermitianSVTtest :: () -> [[ComplexT]]
+oddHermitianSVTtest :: () -> Double
 oddHermitianSVTtest () =
     let 
         -- Et ulige polynomium p(x) med p(x)^2 mindre end 1 for alle x i [-1,1] defineres
@@ -203,9 +155,8 @@ oddHermitianSVTtest () =
         svtVec = svtVectorPhi pC qC
 
         -- Definer en matrix og sæt matrixQubits
-        matDataPre =   [[0.0 :+ 0.0, sqrt(2)/4 :+ (-sqrt(2)/4)], 
+        matData =   [[0.0 :+ 0.0, sqrt(2)/4 :+ (-sqrt(2)/4)], 
                         [sqrt(2)/4 :+ sqrt(2)/4, (-1/sqrt(2)) :+ 0.0]]  
-        matData = matDataPre
 
         matIn = fromLists matData
         matrixQubits = 1
@@ -224,14 +175,8 @@ oddHermitianSVTtest () =
 
         -- ... tage gennemsnit af de tilstande man får ved anvendelse af 
         -- den alternerende fasemodulerende sekvens hørende til blockEnc med svtVec hhv (-svtVec) : 
-        tempState1 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,0])) .+ (apply svtConjQOt (ket [0,0])))
-        tempState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
-        
-        -- De singulære normeringskonstanter beregnes:
-        normSV = 0.5*(norm_Frob matIn)^(2 :: Int) + 0.5*(norm_Frob matIn)^(4 :: Int)
-
-        finalState1 = (normSV :+ 0) .* tempState1
-        finalState2 = (normSV :+ 0) .* tempState2
+        finalState1 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,0])) .+ (apply svtConjQOt (ket [0,0])))
+        finalState2 = (0.5 :+ 0) .* ((apply svtQOt (ket [0,1])) .+ (apply svtConjQOt (ket [0,1])))
      
         -- Der projiceres
         m11 = inner  (ket [0,0]) finalState1
@@ -239,14 +184,20 @@ oddHermitianSVTtest () =
         m21 = inner  (ket [0,1]) finalState1
         m22 = inner  (ket [0,1]) finalState2
 
-        -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
+        -- Den resulterende matrix 
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
-    in 
-        -- Virker det? Man burde få de singulære værdier 0.5248 og 0.2448. Det får man 
-        toLists matOut 
+        matOut = fromLists matOutData
 
-evenHermitianSVTtest :: () -> [[ComplexT]]
+        -- Calculating the transformed input SV and the output SV
+        -- In the case where the matrix is Hermitian we want to look at eigenvalues instead
+        matInSV =  eigenvalues matIn
+        matInSVT = sortDescendingComplex $ VS.map (polyEval p) matInSV
+        matOutSV = sortDescendingComplex $ eigenvalues matOut
+    in 
+        -- What is the maximum deviation in the SVT (eigenvalues)?
+        VS.maximum $ cmap magnitude (matInSVT - matOutSV)
+
+evenHermitianSVTtest :: () -> Double
 evenHermitianSVTtest () =
     let 
         -- Et lige polynomium p(x) med p(x)^2 mindre end 1 for alle x i [-1,1] defineres
@@ -256,9 +207,8 @@ evenHermitianSVTtest () =
         svtVec = svtVectorPhi pC qC
 
         -- Definer en Hermitisk matrix og sæt matrixQubits
-        matDataPre =   [[0.0 :+ 0.0, sqrt(2)/4 :+ (-sqrt(2)/4)], 
+        matData =   [[0.0 :+ 0.0, sqrt(2)/4 :+ (-sqrt(2)/4)], 
                         [sqrt(2)/4 :+ sqrt(2)/4, (-1/sqrt(2)) :+ 0.0]]   
-        matData = matDataPre
 
         matIn = fromLists matData
         matrixQubits = 1
@@ -295,11 +245,15 @@ evenHermitianSVTtest () =
         -- Den resulterende matrix ... har den mon de kvadrerede singulære værdier?
         matOutData = [[m11,m12], [m21,m22]]
         matOut = fromLists matOutData 
+
+        -- Calculating the transformed input SV and the output SV
+        -- In the case where the matrix is Hermitian we want to look at eigenvalues instead
+        matInSV =  eigenvalues matIn
+        matInSVT = sortDescendingComplex $ VS.map (polyEval p) matInSV
+        matOutSV = sortDescendingComplex $ eigenvalues matOut
     in 
-        -- Virker det? Man burde få de singulære værdier 0.5248 og 0.2448. Det får man 
-        toLists matOut 
-
-
+        -- What is the maximum deviation in the SVT (eigenvalues)?
+        VS.maximum $ cmap magnitude (matInSVT - matOutSV)
 
 
 ----------------------------- Helpers -----------------------------------------
@@ -310,3 +264,19 @@ roundTo n x = fromIntegral (round (x * 10^n) :: Integer) / (10^n)
 roundComplex :: (RealFloat a) => Int -> Complex a -> Complex a
 roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
 
+
+-- 1. Generalized Polynomial Evaluation
+polyEval :: (Real a, Eq b, Fractional b) => VPoly a -> b -> b
+polyEval p v = eval (toPoly (V.map (fromRational . toRational) (unPoly p))) v
+
+-- 2. Generalized Vector Subtraction
+subtractVectors :: (Num a, Storable a) => VS.Vector a -> VS.Vector a -> VS.Vector a
+subtractVectors v1 v2 = VS.zipWith (-) v1 v2
+
+-- Use this helper when dealing with real-valued Double vectors
+sortDescendingReal :: VS.Vector Double -> VS.Vector Double
+sortDescendingReal vec = VS.fromList $ sortOn (Down . abs) (VS.toList vec)
+
+-- Use this helper when dealing with complex-valued eigenvalues
+sortDescendingComplex :: VS.Vector (Complex Double) -> VS.Vector (Complex Double)
+sortDescendingComplex vec = VS.fromList $ sortOn (Down . magnitude) (VS.toList vec)

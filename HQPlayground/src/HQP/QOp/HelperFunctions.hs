@@ -218,6 +218,17 @@ foldBalanced v f = go v
                                   f (xs V.! (2*i)) (xs V.! (2*i+1)))
 
 
+-- Flyttes fra MatrixPreparation.hs ... SKAL TESTES
+padToPowerOf2 :: Int -> a -> V.Vector a -> V.Vector a
+padToPowerOf2 numQbits paddingObj vec
+    | len == targetLen = vec -- Already 2^n
+    | otherwise        = vec V.++ V.replicate (targetLen - len) paddingObj
+  where
+    len       = V.length vec
+    targetLen = 2 ^ numQbits
+
+
+
 -- HELPER DATA STRUCTURES
 pushTopK :: Int 
          -> Double 

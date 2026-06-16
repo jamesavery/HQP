@@ -2,14 +2,18 @@ module Programs.QFT where
 import HQP
 
 -- | Quantum Fourier Transform on n qubits with MSB input and MSB output.
+-- Hmmm Jeg er ikke enig med dig her. Denne version ser ud til at være LSB->LSB
+-- Men måske læser vi ikke bits i samme retning .. ha ha ha TM20260616
 qft :: Int -> QOp
 qft n = Permute [n-1, n-2 .. 0] ∘ qftrev n 
+
 
 -- | QFT with LSB input and MSB output (reverse order)
 qftrev :: Int -> QOp
 qftrev 0 = One
 qftrev 1 = H
 qftrev n = (qftrev (n-1) ⊗ I) ∘ layer n
+
 
 -- | QFT layer acting on qubit n
 layer :: Int -> QOp  -- acts on n qubits; targets last qubit
@@ -20,11 +24,13 @@ layer n = let
         phases_at_n ∘ h_at_n
 
 -- | Z-Rotation (relative phase change) by angle 2π/2^k 
+-- Har byttet linien nedenfor ... ellers opræder der relative faser ... eller
+-- sagt anderledes: Det giver ikke QFT TM20260616
 rz :: Int -> QOp
-rz k = R Z (2 / (2^k))
+--rz k = R Z (2 / (2^k))
+rz k = (Phase (1 / (2^k))) ⊗ (R Z ( 2 / (2^k))) -- TM20260616
 
 -- | controlled Rz(2π/2^(n-k+1)) with control qubit k and target qubit n. 
 cR :: Int -> Int -> QOp
 cR k n = (Id (k-1)) ⊗ C ((Id (n-k-1)) ⊗ rz (n-k+1)) 
-
 

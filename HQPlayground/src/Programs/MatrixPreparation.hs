@@ -46,14 +46,17 @@ unitaryU mat =
         -- Building the SWAP
         swap = if numQbits == 1 then Permute [1,0] else Permute ([numQbits .. 2*(numQbits) - 1 ] ++ [0 .. (numQbits - 1)])
     in
-        dsQOp <> swap
+        dsQOp ∘ swap
 
+{- Moved to HelperFunctions.hs ... SKAL TESTES
 padToPowerOf2 :: Int -> QOp -> V.Vector QOp -> V.Vector QOp
 padToPowerOf2 numQbits paddingObj vec
     | len == (2^numQbits) = vec -- Already 2^n
     | otherwise   = vec V.++ V.replicate ((2^numQbits) - len) paddingObj
   where
     len  = V.length vec
+-}
+
 
 -- | Block-encode a complex matrix M as a 2n-qubit unitary U such that
 --   the upper-left 2^n × 2^n block of U equals M / ‖M‖_F (Frobenius norm).

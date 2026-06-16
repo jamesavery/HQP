@@ -18,8 +18,6 @@ import Data.List (sortOn)
 import Data.Ord (Down(..))
 import Data.Poly (VPoly, eval, toPoly, unPoly)
 
-
-
 main :: IO ()
 main = do
     print (show (svtVectorPhiTest()))
@@ -246,7 +244,7 @@ evenHermitianSVTtest () =
         matOut = fromLists matOutData 
 
         -- Calculating the transformed input SV and the output SV
-        -- In the case where the matrix is Hermitian we want to look at eigenvalues instead
+        -- For Hermitian matrices we want to look at eigenvalues instead
         matInSV =  eigenvalues matIn
         matInSVT = sortDescendingComplex $ VS.map (polyEval p) matInSV
         matOutSV = sortDescendingComplex $ eigenvalues matOut
@@ -256,12 +254,6 @@ evenHermitianSVTtest () =
 
 
 ----------------------------- Helpers -----------------------------------------
--- Helper to round a single number to n decimal places
-roundTo :: (RealFloat a) => Int -> a -> a
-roundTo n x = fromIntegral (round (x * 10^n) :: Integer) / (10^n)
-
-roundComplex :: (RealFloat a) => Int -> Complex a -> Complex a
-roundComplex n (r :+ i) = (roundTo n r) :+ (roundTo n i)
 
 polyEval :: (Real a, Eq b, Fractional b) => VPoly a -> b -> b
 polyEval p v = eval (toPoly (V.map (fromRational . toRational) (unPoly p))) v

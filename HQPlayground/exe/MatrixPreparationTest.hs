@@ -1,13 +1,14 @@
 module Main where
 
 import HQP.QOp
-import HQP.QOp.StatevectorSemantics
+import HQP.QOp.StatevectorSemantics ( apply, evalOp, ket, StateT )
+import HQP.QOp.MatrixSemantics (CMat)
 import HQP.PrettyPrint
 
 import Programs.MatrixPreparation
 import Programs.MatrixArithmetic
 
-import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
+import Numeric.LinearAlgebra (fromLists, norm_Frob,dispcf)
 
 import Control.Monad (forM_)
  
@@ -23,20 +24,33 @@ printbuildRowQOpTester = do
 
 main :: IO ()
 main = do
-    print (show (matrixPrepTester2 ())) 
-    print (show (matrixPrepTester3 ())) 
-    print (show (matrixPrepTester4 ())) 
-    print (show (matrixPrepTester5 ())) 
-    print (show (productTester ())) 
-    print (show (sumTester ()))
-    printbuildRowQOpTester
+    -- Number of decimals set in call to dispcf
+    let decimals = 6
+    putStrLn $ "matrixPrepTester2: " ++ dispcf decimals (matrixPrepTester2 ())
+    putStrLn $ "matrixPrepTester3: " ++ dispcf decimals (matrixPrepTester3 ()) 
+    putStrLn $ "matrixPrepTester4: " ++ dispcf decimals (matrixPrepTester4 ())
+    putStrLn $ "matrixPrepTester5: " ++ dispcf decimals (matrixPrepTester5 ())
+    putStrLn $ "productTester: " ++ dispcf decimals (productTester ())
+    putStrLn $ "sumPrepTester: " ++ dispcf decimals (sumTester ())
+    putStrLn $ "dyadicLCUTester: " ++ dispcf decimals (dyadicLCUTester ())
+    putStrLn $ "discretizeTest: " ++ show (discretizeTest ())
+    --print $ show (dyadicLCUTester ())
+    --printbuildRowQOpTester
 
-sumTester :: () -> [[ComplexT]]
+discretizeTest :: () -> V.Vector Int
+discretizeTest () = discretize 3 (V.fromList [9/16,-4/16,2/16,-1/16,0])
+
+
+
+
+
+
+sumTester :: () -> CMat
 sumTester () =
     let
         -- Matrix data
         matData1 =   [[1,2,3], [4,5,6], [7,8,9]]
-        matData2 =   [[10,11,12], [13,14,15],[16,17,18]]    -- sum = [[11,13,15], [17,19,21],[23,25,27]]
+        matData2 =   [[10,11,12], [13,14,15],[16,17,18]]
         matIn1 = fromLists matData1
         matIn2 = fromLists matData2
         
@@ -79,13 +93,11 @@ sumTester () =
         m33 = inner  (ket [0,0,0,1,0]) finalState3
  
         matOutData = [[m11,m12,m13], [m21,m22,m23], [m31,m32,m33]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
     in 
-        toLists (matOut - (matIn1 + matIn2)) --Forskellen sendes videre
+        matOut - (matIn1 + matIn2)
 
-
-
-productTester :: () -> [[ComplexT]]
+productTester :: () -> CMat
 productTester () =
     let
         -- Matrix data
@@ -108,18 +120,14 @@ productTester () =
         m11 = inner (ket [0,0,0]) finalState1
         m12 = inner (ket [0,0,0]) finalState2
         
-        m21 = inner (ket [0,0,1]) finalState1 -- Jeg kan ikke få disse til at give det rigtige med 001. 
-        m22 = inner (ket [0,0,1]) finalState2 -- Trods at finalState2 = ...+ 3*001 + ... får m22 IKKE værdien 3 som den bør
-                                              -- Tror altså at det er en fejl som IKKE er i productEncoding
+        m21 = inner (ket [0,0,1]) finalState1  
+        m22 = inner (ket [0,0,1]) finalState2                                               
 
         matOutData =   [[m11,m12], [m21,m22]]
-
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINGSFEJL FJERNES
-    
+        matOut = fromLists matOutData 
         matInProduct = fromLists ([[2,1], [4,3]])
     in 
-        --finalState2
-        toLists (matOut - matInProduct) --Forskellen sendes videre
+        matOut - matInProduct
 
 buildRowQOpTester :: () -> [StateT] 
 buildRowQOpTester =
@@ -152,15 +160,11 @@ buildRowQOpTester =
         return [finalState2,finalState3,finalState4,finalState5]
 
 
-matrixPrepTester2 :: () -> [[ComplexT]] 
+matrixPrepTester2 :: () -> CMat 
 matrixPrepTester2 () =
      let
-        matData =  [[ 0.6 :+ 0.0, 0.0 :+ 0.0 ], 
-                    [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]
-
-        -- Conversion to MatClassic
-        -- matIn = fromRows matData
-        matIn = fromLists matData
+        matIn = fromLists [[ 0.6 :+ 0.0, 0.0 :+ 0.0 ], 
+                           [ 0.0 :+ 0.0, 0.3 :+ 0.0 ]]      
 
         -- Unitary encoding of the matrix
         matQOt = evalOp $ matrixPrep matIn
@@ -181,19 +185,17 @@ matrixPrepTester2 () =
         
         -- Conversion to MatClassic and rounding (16 decimals)
         matOutData = [[m11,m12], [m21,m22]]
-        matOut = fromLists (map (map (roundComplex 16)) matOutData)
+        matOut = fromLists matOutData
     in 
-        -- Check: We should have input = output here (Thee zero matrix)
-        toLists (matOut - matIn)    
+        matOut - matIn   
 
-matrixPrepTester3 :: () -> [[ComplexT]] 
+matrixPrepTester3 :: () -> CMat 
 matrixPrepTester3 () =
      let
-        matData =  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0  ], 
-                    [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0  ],
-                    [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0  ]]
+        matIn = fromLists  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0  ], 
+                            [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0  ],
+                            [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0  ]]
 
-        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
         finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
@@ -213,21 +215,18 @@ matrixPrepTester3 () =
         m33 = inner  (ket [0,0,1,0]) finalState3
  
         matOutData = [[m11,m12,m13], [m21,m22,m23], [m31,m32,m33]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
     in 
-        toLists (matOut - matIn) --Forskellen sendes videre  
+        matOut - matIn 
 
-
-
-matrixPrepTester4 :: () -> [[ComplexT]] 
+matrixPrepTester4 :: () -> CMat
 matrixPrepTester4 () =
      let
-        matData =  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  6.0 :+ 0.0 ], 
-                    [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0 ,  7.0 :+ 0.0 ],
-                    [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0 ,  0.0 :+ 0.0 ],
-                    [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ]]
+        matIn = fromLists  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  6.0 :+ 0.0 ], 
+                            [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0 ,  7.0 :+ 0.0 ],
+                            [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0 ,  0.0 :+ 0.0 ],
+                            [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ]]
 
-        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
         finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0]))
@@ -256,27 +255,26 @@ matrixPrepTester4 () =
         m44 = inner  (ket [0,0,1,1]) finalState4
 
         matOutData = [[m11,m12,m13,m14], [m21,m22,m23,m24], [m31,m32,m33,m34],[m41,m42,m43,m44]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
     in 
-        toLists (matOut - matIn) --Forskellen sendes videre  
+        matOut - matIn  
 
-matrixPrepTester5 :: () -> [[ComplexT]]
+matrixPrepTester5 :: () -> CMat
 matrixPrepTester5 () = 
     let
-        matData =  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  6.0 :+ 0.0 ,    0.0 :+ 7.0 ], 
-                    [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0 ,  7.0 :+ 0.0 , (-8.0) :+ 0.0 ],
-                    [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0 ,  0.0 :+ 0.0 ,    0.0 :+ 0.0 ],
-                    [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ,    0.0 :+ 0.0 ],
-                    [ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  0.0 :+ 6.0 ,   11.0 :+ 0.0 ]]
+        matIn = fromLists  [[ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  6.0 :+ 0.0 ,    0.0 :+ 7.0 ], 
+                            [ 3.0 :+ 0.0, 4.0 :+ 0.0 , 5.0 :+ 6.0 ,  7.0 :+ 0.0 , (-8.0) :+ 0.0 ],
+                            [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 9.0 :+ 0.0 ,  0.0 :+ 0.0 ,    0.0 :+ 0.0 ],
+                            [ 0.0 :+ 0.0, 0.0 :+ 0.0 , 0.0 :+ 0.0 , 10.0 :+ 0.0 ,    0.0 :+ 0.0 ],
+                            [ 1.0 :+ 2.0, 3.0 :+ 4.0 , 5.0 :+ 0.0 ,  0.0 :+ 6.0 ,   11.0 :+ 0.0 ]]
 
-        matIn = fromLists matData
         matQOt = evalOp $ matrixPrep matIn
 
-        finalState1 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,0]))
-        finalState2 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,0,1]))
-        finalState3 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,0]))
-        finalState4 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,0,1,1]))
-        finalState5 = (norm_Frob matIn :+ 0) .* (apply matQOt (ket [0,0,0,1,0,0]))
+        finalState1 = (norm_Frob matIn :+ 0) .* apply matQOt (ket [0,0,0,0,0,0])
+        finalState2 = (norm_Frob matIn :+ 0) .* apply matQOt (ket [0,0,0,0,0,1])
+        finalState3 = (norm_Frob matIn :+ 0) .* apply matQOt (ket [0,0,0,0,1,0])
+        finalState4 = (norm_Frob matIn :+ 0) .* apply matQOt (ket [0,0,0,0,1,1])
+        finalState5 = (norm_Frob matIn :+ 0) .* apply matQOt (ket [0,0,0,1,0,0])
 
         m11 = inner  (ket [0,0,0,0,0,0]) finalState1
         m12 = inner  (ket [0,0,0,0,0,0]) finalState2
@@ -309,14 +307,42 @@ matrixPrepTester5 () =
         m55 = inner  (ket [0,0,0,1,0,0]) finalState5
 
         matOutData = [[m11,m12,m13,m14,m15], [m21,m22,m23,m24,m25], [m31,m32,m33,m34,m35],[m41,m42,m43,m44,m45],[m51,m52,m53,m54,m55]]
-        matOut = fromLists (map (map (roundComplex 9)) matOutData) -- AFRUNDINNGSFEJL
+        matOut = fromLists matOutData
     in 
-        toLists (matOut - matIn) --Forskellen sendes videre 
+        matOut - matIn 
 
+ 
+dyadicLCUTester :: () -> CMat 
+dyadicLCUTester () =
+     let
+        matIn1 = fromLists  [[ 1.0 :+ 0.0, 0.0 :+ 0.0 ], 
+                             [ 0.0 :+ 0.0, 1.0 :+ 0.0 ]]
+        
+        matIn2 = fromLists  [[ 0.0 :+ 0.0, 1.0 :+ 0.0 ], 
+                             [ 1.0 :+ 0.0, 0.0 :+ 0.0 ]]
+        
+        -- Unitary encoding of the matrices
+        -- and call to nonRotLCU to 
+        precision = 3
+        lcuQOp = dyadicLCU precision (V.fromList [(0.75, matrixPrep matIn1), (0.25, matrixPrep matIn2)])
+        lcuQOt = evalOp $ lcuQOp
 
--- Helper to round a single number to n decimal places
-roundTo :: RealFloat a => Int -> a -> a
-roundTo n x = fromIntegral (round (x * (10 ^^ n)):: Int) / (10 ^^ n)
+        -- Final states on input 00 and 01
+        finalState1 =  apply lcuQOt (ket [0,0,0,0,0,0])
+        finalState2 =  apply lcuQOt (ket [0,0,0,0,0,1])
 
-roundComplex :: RealFloat a => Int -> Complex a -> Complex a
-roundComplex n (r :+ i) = roundTo n r :+ roundTo n i
+        -- The encoding is normalized
+        -- normMatIn = norm_Frob matIn
+
+        -- Checking if the matrix has been upper left corner encoded
+        -- Making sure the matrix is de-normalized
+        m11 = inner (ket [0,0,0,0,0,0]) finalState1 --(normMatIn :+ 0.0) *
+        m12 = inner (ket [0,0,0,0,0,0]) finalState2 --(normMatIn :+ 0.0) *
+        m21 = inner (ket [0,0,0,0,0,1]) finalState1 --(normMatIn :+ 0.0) *
+        m22 = inner (ket [0,0,0,0,0,1]) finalState2 --(normMatIn :+ 0.0) *
+        
+        -- Conversion to MatClassic and rounding (16 decimals)
+        matOutData = [[m11,m12], [m21,m22]]
+        matOut = fromLists matOutData
+    in 
+        matOut --     - (2 * matIn1 - matIn2)

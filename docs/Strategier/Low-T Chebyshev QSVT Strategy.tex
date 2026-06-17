@@ -1,0 +1,447 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+
+% Page geometry
+\geometry{margin=1in}
+
+% Colors
+\definecolor{myblue}{RGB}{0,51,102}
+\definecolor{mygreen}{RGB}{0,128,0}
+\definecolor{myred}{RGB}{180,0,0}
+
+% Hyperlink setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=myblue!70!black,
+    urlcolor=cyan!70!black
+}
+
+% Commands
+\newcommand{\QSVT}{\textsc{qsvt}}
+\newcommand{\LCU}{\textsc{lcu}}
+\newcommand{\QFT}{\textsc{qft}}
+\newcommand{\poly}{\operatorname{poly}}
+\newcommand{\polylog}{\operatorname{polylog}}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Low-T Chebyshev QSVT Strategy \quad June 2026}
+
+\begin{document}
+
+\title{
+\textbf{
+Low-T Matrix Inversion via\\
+Chebyshev-Restricted QSVT and Structured Block Encodings
+}
+}
+
+\author{
+Fault-Tolerant Compilation Strategy
+}
+
+\date{June 2026}
+
+\maketitle
+
+\begin{abstract}
+We propose a fault-tolerant strategy for quantum matrix inversion targeting low non-Clifford overhead rather than maximal QSVT generality. Instead of applying arbitrary-phase Quantum Singular Value Transformation (QSVT) directly to approximate $1/x$, we first construct a polynomial approximation using Newton--Schulz iteration and subsequently rewrite the resulting polynomial in the Chebyshev basis. Each Chebyshev component is then implemented individually using restricted QSVT sequences requiring only $\pi/2$ phase angles. 
+
+The resulting architecture is Clifford-dominant: the primary source of non-Clifford complexity is isolated to global normalization and state preparation associated with the final Linear Combination of Unitaries (LCU). Using coherent amplitude amplification through qubitization (Lemma 28 of Gily\'en et al.), we recover constant success probability without introducing arbitrary QSVT phase synthesis.
+
+For structured matrices admitting low-cost block encodings---particularly banded matrices implemented through shift-based constructions---the proposed approach may substantially reduce T-count relative to standard arbitrary-phase QSVT synthesis.
+\end{abstract}
+
+\tableofcontents
+
+\vspace{1em}
+\hrule
+\vspace{1em}
+
+% =========================================================
+
+\section{Motivation}
+
+In fault-tolerant quantum computing, arbitrary single-qubit rotations dominate physical resource costs due to T-gate synthesis and magic-state distillation. Standard QSVT-based matrix inversion typically requires:
+
+\begin{enumerate}
+    \item arbitrary phase sequences,
+    \item high-precision rotation synthesis,
+    \item repeated non-Clifford operations throughout the circuit.
+\end{enumerate}
+
+This work explores the hypothesis that:
+
+\begin{quote}
+For structured matrix classes, the full expressive power of arbitrary-phase QSVT may not be necessary to achieve competitive matrix inversion.
+\end{quote}
+
+Instead, we investigate a restricted architecture based on:
+
+\begin{itemize}
+    \item Newton--Schulz iteration,
+    \item Chebyshev polynomial decompositions,
+    \item restricted QSVT phase patterns,
+    \item and global amplitude normalization.
+\end{itemize}
+
+The central goal is not to eliminate non-Clifford gates entirely, but rather to confine them to a very small number of global normalization primitives.
+
+% =========================================================
+
+\section{Overview of the Pipeline}
+
+Given a block-encoding of a matrix
+\[
+A \in \mathbb{C}^{N\times N},
+\]
+we approximate
+\[
+A^{-1}
+\]
+through the following stages:
+
+\begin{enumerate}
+    \item Newton--Schulz polynomial generation,
+    \item Chebyshev basis conversion,
+    \item term-wise Chebyshev QSVT,
+    \item global LCU combination,
+    \item coherent amplitude amplification via qubitization.
+\end{enumerate}
+
+The architecture is intentionally designed so that the spectral transformation layer remains almost entirely Clifford-dominant.
+
+% =========================================================
+
+\section{Step 1: Newton--Schulz Iteration}
+
+Assume the spectrum of $A$ is rescaled to lie in
+\[
+[\kappa^{-1},1].
+\]
+
+We use the Newton--Schulz recursion
+\[
+X_{k+1}
+=
+X_k(2I-AX_k).
+\]
+
+Each iterate is a polynomial in $A$:
+\[
+X_k = p_k(A).
+\]
+
+The recursion converges quadratically:
+\[
+\|I-AX_k\|
+\rightarrow
+0.
+\]
+
+After
+\[
+k = O(\log\log(1/\epsilon))
+\]
+iterations, we obtain an approximation satisfying
+\[
+\|A^{-1}-p_k(A)\|
+\le
+\epsilon.
+\]
+
+The degree grows approximately as
+\[
+\deg(p_k)\sim 2^k,
+\]
+giving overall polylogarithmic dependence on precision.
+
+The coefficients remain rational whenever the initialization and scaling are rational.
+
+% =========================================================
+
+\section{Step 2: Chebyshev Re-Expansion}
+
+Rewrite
+\[
+p_k(x)
+\]
+in the Chebyshev basis:
+\[
+p_k(x)
+=
+\sum_{m=0}^d c_m T_m(x).
+\]
+
+This basis change is advantageous because:
+
+\begin{enumerate}
+    \item Chebyshev polynomials are naturally compatible with qubitization,
+    \item numerical stability is improved,
+    \item QSVT implementations of $T_m(x)$ admit highly structured phase sequences.
+\end{enumerate}
+
+The resulting coefficients
+\[
+c_m
+\]
+remain rational whenever the original polynomial has rational coefficients.
+
+% =========================================================
+
+\section{Step 3: Restricted Chebyshev QSVT}
+
+Instead of synthesizing a general polynomial directly through arbitrary QSVT phases, we implement each
+\[
+T_m(A)
+\]
+individually.
+
+\subsection{Key Structural Observation}
+
+For Chebyshev transformations, the relevant QSVT phase sequences are highly constrained and can be chosen from:
+\[
+0,\ \pm\frac{\pi}{2},\ \pi.
+\]
+
+Consequently:
+
+\begin{itemize}
+    \item large portions of the QSVT layer become Clifford,
+    \item arbitrary-angle phase synthesis is avoided,
+    \item non-Clifford complexity is significantly reduced.
+\end{itemize}
+
+This does \emph{not} imply that the total circuit is purely Clifford. Rather, the spectral transformation backbone becomes Clifford-dominant.
+
+% =========================================================
+
+\section{Step 4: Structured Block Encodings}
+
+The effectiveness of the strategy depends strongly on the block encoding.
+
+We target structured matrices such as:
+
+\begin{itemize}
+    \item banded matrices,
+    \item sparse shift-structured matrices,
+    \item discretized PDE operators,
+    \item lattice Hamiltonians.
+\end{itemize}
+
+For such matrices, one can frequently implement block encodings using:
+
+\begin{itemize}
+    \item shift operators,
+    \item Fourier-diagonalizable walks,
+    \item sparse index logic,
+    \item reversible lookup structures.
+\end{itemize}
+
+The main architectural objective is:
+
+\begin{quote}
+Keep the block encoding itself as close to Clifford as possible.
+\end{quote}
+
+In this regime, the overall matrix inversion pipeline inherits a very low T-density.
+
+% =========================================================
+
+\section{Step 5: Global LCU Combination}
+
+We combine the Chebyshev components through:
+\[
+\mathcal O
+=
+\sum_{m=0}^d c_m U_m,
+\]
+where
+\[
+U_m
+\]
+implements
+\[
+T_m(A).
+\]
+
+The dominant normalization parameter is
+\[
+\lambda
+=
+\sum_{m=0}^d |c_m|.
+\]
+
+A naive postselected implementation yields success probability
+\[
+P_{\text{succ}}
+\sim
+\frac{1}{\lambda^2}.
+\]
+
+Crucially, the proposed strategy introduces non-Clifford rotations only in the global normalization stage, rather than throughout every QSVT layer.
+
+% =========================================================
+
+\section{Qubitization and Amplitude Recovery}
+
+The low success probability is resolved using coherent amplitude amplification.
+
+Suppose the block encoding satisfies
+\[
+(\langle 0| \otimes I)
+U
+(|0\rangle \otimes I)
+=
+A/\lambda.
+\]
+
+The corresponding qubiterate construction already contains the relevant isometric structure:
+\[
+W^\dagger W = I.
+\]
+
+Lemma 28 of Gily\'en et al.\ may then be interpreted as converting the suppressed success amplitude into an SU(2)-type spectral rotation.
+
+Applying Chebyshev-QSVT to the resulting walk operator amplifies:
+\[
+\sin(\theta)
+=
+1/\lambda
+\]
+into
+\[
+\sin((2k+1)\theta),
+\]
+thereby achieving constant success probability with
+\[
+O(\lambda)
+\]
+applications of the walk operator.
+
+Importantly, this amplification layer remains compatible with the restricted Chebyshev phase structure.
+
+% =========================================================
+
+\section{Non-Clifford Resource Localization}
+
+The central architectural principle is:
+
+\begin{quote}
+Non-Clifford resources should appear only in global normalization and state preparation.
+\end{quote}
+
+Potential non-Clifford components include:
+
+\begin{itemize}
+    \item ancilla normalization rotations,
+    \item state-preparation amplitudes,
+    \item approximate Fourier rotations,
+    \item sparse arithmetic subroutines.
+\end{itemize}
+
+These rotations can be synthesized using:
+\begin{itemize}
+    \item Ross--Selinger,
+    \item GridSynth,
+    \item repeat-until-success methods,
+    \item phase-gradient techniques.
+\end{itemize}
+
+The important distinction is that arbitrary-angle synthesis no longer scales with the full polynomial degree.
+
+% =========================================================
+
+\section{Conceptual Positioning}
+
+This work does not claim to outperform general QSVT asymptotically in all settings.
+
+Instead, the guiding principle is:
+
+\begin{quote}
+Universal arbitrary-phase QSVT may not be fault-tolerance-optimal for structured spectral transformations.
+\end{quote}
+
+The proposed pipeline attempts to exploit:
+
+\begin{enumerate}
+    \item restricted spectral structure,
+    \item Chebyshev recursion geometry,
+    \item structured block encodings,
+    \item and sparse non-Clifford injection.
+\end{enumerate}
+
+The resulting architecture is intended specifically for early fault-tolerant regimes where T-count dominates cost models.
+
+% =========================================================
+
+\section{Potential Research Contributions}
+
+Potential contributions include:
+
+\begin{enumerate}
+    \item Formal characterization of Clifford-dominant Chebyshev-QSVT.
+    
+    \item Explicit separation between:
+    \[
+    \text{polynomial degree}
+    \quad\text{and}\quad
+    \text{T-count}.
+    \]
+    
+    \item Resource estimates for structured matrix classes.
+    
+    \item Comparative analysis versus arbitrary-phase QSVT synthesis.
+    
+    \item Compiler-aware matrix inversion strategies.
+    
+    \item End-to-end Haskell simulation framework for:
+    \begin{itemize}
+        \item block encodings,
+        \item QSVT layers,
+        \item LCU composition,
+        \item and fault-tolerant compilation cost tracking.
+    \end{itemize}
+\end{enumerate}
+
+% =========================================================
+
+\section{Conclusion}
+
+We propose a fault-tolerant matrix inversion strategy emphasizing low non-Clifford overhead rather than maximal QSVT generality.
+
+The essential idea is to:
+
+\begin{enumerate}
+    \item generate inversion polynomials through Newton--Schulz iteration,
+    \item implement only Chebyshev spectral components,
+    \item exploit restricted QSVT phase patterns,
+    \item and isolate non-Clifford synthesis to global normalization.
+\end{enumerate}
+
+For structured matrix classes with low-cost block encodings, this approach may provide meaningful reductions in T-count while preserving coherent amplitude amplification through qubitization.
+
+\vspace{2em}
+
+\hrule
+
+\vspace{1em}
+
+\noindent
+\textit{
+Draft strategy document generated from collaborative discussion.
+}
+
+\end{document}

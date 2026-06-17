@@ -2,29 +2,32 @@ module Main where
 
 import HQP.QOp
 import HQP.QOp.StatevectorSemantics
+import HQP.QOp.MatrixSemantics (CMat)
 import HQP.PrettyPrint
+
 import Programs.QFT
 import Programs.SparseMatrixPreparation
 import Data.Ratio
 import qualified Data.Vector as V
-import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob)
+import Numeric.LinearAlgebra (fromLists, toLists, norm_Frob, dispcf) --, disp
 import Data.Complex
 
 
 main :: IO ()
 main = do
     --print $ (show (permutationTest ())) 
-    --printS $ (qftPermTest ())
-    print $ (show (sparseUAEncodingTest4 ()))
-    print $ (show (sparseUAEncodingTest8 ()))
+    printS $ (qftPermTest ())
+    putStrLn $ "sparseUAEncodingTest4: " ++ dispcf 4 (sparseUAEncodingTest4 ())
+    --putStrLn $ dispcf 4 (sparseUAEncodingTest8 ())
+    --print $ (show (sparseUAEncodingTest8 ()))
 
-sparseUAEncodingTest4 :: () -> [[ComplexT]]
+sparseUAEncodingTest4 :: () -> CMat
 sparseUAEncodingTest4 () =
     let
-        sparseValues = [[1], [-1]]
-        valOracleQOp = valueOracle $ buildRotVec 4 sparseValues
+        sparseValues = [[0.05,0.2,0.3,0.4], [0.05,0.02,0.03,0]]
+        valOracleQOp = valueOracle $ buildRotVec 1 sparseValues
 
-        permutations = V.fromList [ Permute [1,0], X⊕X  ]
+        permutations = V.fromList [ Permute [1,0], Id 2 ] --X⊕X
         posOracleQOp = positionOracle permutations
 
         uaQOp = sparseUAEncoding 1 valOracleQOp posOracleQOp
@@ -35,36 +38,35 @@ sparseUAEncodingTest4 () =
         finalState3 =  (apply uaQOt (ket [0,0,1,0]))
         finalState4 =  (apply uaQOt (ket [0,0,1,1]))
 
-        m11 = inner  (ket [0,0,0,0,0]) finalState1
-        m12 = inner  (ket [0,0,0,0,0]) finalState2
-        m13 = inner  (ket [0,0,0,0,0]) finalState3
-        m14 = inner  (ket [0,0,0,0,0]) finalState4
+        m11 = inner  (ket [0,0,0,0]) finalState1
+        m12 = inner  (ket [0,0,0,0]) finalState2
+        m13 = inner  (ket [0,0,0,0]) finalState3
+        m14 = inner  (ket [0,0,0,0]) finalState4
 
-        m21 = inner  (ket [0,0,0,0,1]) finalState1
-        m22 = inner  (ket [0,0,0,0,1]) finalState2
-        m23 = inner  (ket [0,0,0,0,1]) finalState3
-        m24 = inner  (ket [0,0,0,0,1]) finalState4
+        m21 = inner  (ket [0,0,0,1]) finalState1
+        m22 = inner  (ket [0,0,0,1]) finalState2
+        m23 = inner  (ket [0,0,0,1]) finalState3
+        m24 = inner  (ket [0,0,0,1]) finalState4
 
-        m31 = inner  (ket [0,0,0,1,0]) finalState1
-        m32 = inner  (ket [0,0,0,1,0]) finalState2
-        m33 = inner  (ket [0,0,0,1,0]) finalState3
-        m34 = inner  (ket [0,0,0,1,0]) finalState4
+        m31 = inner  (ket [0,0,1,0]) finalState1
+        m32 = inner  (ket [0,0,1,0]) finalState2
+        m33 = inner  (ket [0,0,1,0]) finalState3
+        m34 = inner  (ket [0,0,1,0]) finalState4
 
-        m41 = inner  (ket [0,0,0,1,1]) finalState1
-        m42 = inner  (ket [0,0,0,1,1]) finalState2
-        m43 = inner  (ket [0,0,0,1,1]) finalState3
-        m44 = inner  (ket [0,0,0,1,1]) finalState4
+        m41 = inner  (ket [0,0,1,1]) finalState1
+        m42 = inner  (ket [0,0,1,1]) finalState2
+        m43 = inner  (ket [0,0,1,1]) finalState3
+        m44 = inner  (ket [0,0,1,1]) finalState4
 
         matOutData =   [[m11,m12,m13,m14], 
                         [m21,m22,m23,m24], 
                         [m31,m32,m33,m34],
                         [m41,m42,m43,m44]
                         ]
-        matOut = fromLists matOutData
     in 
-        matOutData
+        fromLists matOutData
         
-sparseUAEncodingTest8 :: () -> [[ComplexT]]
+sparseUAEncodingTest8 :: () -> CMat
 sparseUAEncodingTest8 () =
     let
         sparseValues = [[1], [-1]]
@@ -167,7 +169,7 @@ sparseUAEncodingTest8 () =
                         [m81,m82,m83,m84,m85,m86,m87,m88]
                         ]
     in 
-        roundMatrix matOutData
+        fromLists matOutData
 
 -- | Round a nested list matrix of complex numbers to 16 decimal places
 roundMatrix :: [[ComplexT]] -> [[ComplexT]]
@@ -283,18 +285,62 @@ permutationTest () =
 qftPermTest :: () -> StateT
 qftPermTest () =
     let 
+        phi0 = (ket [0,0,0] .+ (2.* ket [0,0,1]) .+ (3.* ket [0,1,0]) .+ (4.* ket [0,1,1]).+ (8.* ket [1,1,1])) 
+
+        -- QFT part. Notice the swaps before and after
         p = Permute [2,1,0]
-        phi0 = apply (evalOp p) (ket [0,0,0])
+        phi1 = apply (evalOp p) phi0
         
         qftQOp = qft 3
         qftQOt = evalOp (qftQOp)
-        phi1 = apply qftQOt phi0
+        phi2 = apply qftQOt phi1
 
-        rotQOp = (R Z (1 % 4)) ⊗ (R Z (1 % 2)) ⊗ (R Z 1)
-        rotQOt = evalOp rotQOp
-        phi2 = apply rotQOt phi1
+        phi3 = apply (evalOp p) phi2 
+        
+        -- Phases diagonal operator part
+        phasesVec = V.fromList [Phase (n % (3+1)) | n <- [0..7]]
+        phasesDiagQOp = foldBalanced phasesVec DirectSum
+        phasesDiagQOt = evalOp phasesDiagQOp
+        phi4 = apply phasesDiagQOt phi3
+
+        -- QFT-inverse part. Notice the swaps before and after
+        phi5 = apply (evalOp p) phi4
 
         adjQftQOt = evalOp (Adjoint (qft 3))
-        phi3 = apply adjQftQOt phi2
+        phi6 = apply adjQftQOt phi5
+    
+        phi7 = apply (evalOp p) phi6    
     in
-        apply (evalOp p) phi3
+        phi7
+
+
+revQftPermTest :: () -> StateT
+revQftPermTest () =
+    let 
+        phi0 = (ket [0,0,0] .+ (2.* ket [0,0,1]) .+ (3.* ket [0,1,0]) .+ (4.* ket [0,1,1]).+ (8.* ket [1,1,1])) 
+
+        -- QFT part. Notice the swaps before and after
+        p = Permute [2,1,0]
+        phi1 = apply (evalOp p) phi0
+        
+        qftQOp = qft 3
+        qftQOt = evalOp (qftQOp)
+        phi2 = apply qftQOt phi1
+
+        phi3 = apply (evalOp p) phi2 
+        
+        -- Phases diagonal operator part
+        phasesVec = V.fromList [Phase (n % (3+1)) | n <- [0..7]]
+        phasesDiagQOp = foldBalanced phasesVec DirectSum
+        phasesDiagQOt = evalOp phasesDiagQOp
+        phi4 = apply phasesDiagQOt phi3
+
+        -- QFT-inverse part. Notice the swaps before and after
+        phi5 = apply (evalOp p) phi4
+
+        adjQftQOt = evalOp (Adjoint (qft 3))
+        phi6 = apply adjQftQOt phi5
+    
+        phi7 = apply (evalOp p) phi6    
+    in
+        phi7

@@ -62,6 +62,7 @@ library core
       Programs.Qubitization
       Programs.SVT
       Programs.RootFinding
+      Programs.SunderhaufOptPoly
       Programs.QuantumAdder
       Programs.RepeaterProtocol
 
@@ -213,3 +214,12 @@ executable SparseMatrixTest
     vector,
     hmatrix
   main-is: SparseMatrixTest.hs
+
+executable SunderhaufTest
+  import: exe-common
+  build-depends:
+    poly,
+    vector,
+    hmatrix
+  main-is: SunderhaufTest.hs
+  

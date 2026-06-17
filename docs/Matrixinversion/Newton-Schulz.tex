@@ -1,0 +1,162 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\geometry{top=25mm,bottom=25mm,left=25mm,right=25mm}
+
+\definecolor{primary}{RGB}{30,60,90}
+\definecolor{secondary}{RGB}{70,100,120}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    citecolor=primary,
+    filecolor=primary,
+    urlcolor=primary
+}
+
+\title{\textbf{\Large Analytical Derivation, Error Analysis, and Chebyshev Representation of the Newton-Schulz Matrix Inversion Framework}}
+\author{\textbf{Quantum Systems and Compilation Working Memo}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This technical document provides an exact, self-contained mathematical derivation of the classical Newton-Schulz iterative method for scalar and matrix inversion. We explicitly analyze its characteristic quadratic error convergence dynamics under finite spectral cutoff boundaries. Furthermore, we provide a detailed look at the polynomial's algebraic expansion into the Chebyshev basis ($T_k$) up to iteration tier $n=3$, establishing the exact, rational coefficient matrices necessary for radical-free state preparation in linear combinations of unitaries (LCU) compiler pipelines.
+\end{abstract}
+
+\section{Introduction}
+The inversion of an arbitrary linear operator or matrix $A \in \mathbb{C}^{N \times N}$ constitutes a cornerstone primitive across digital, classical, and fault-tolerant quantum algorithms. In quantum compilation architectures, implementing the structural matrix inverse $A^{-1}$ via conventional matrix decompositions introduces high circuit depths and complex arithmetic scaling. 
+
+The iterative \textit{Newton-Schulz} method provides a highly structured alternative by constructing a sequence of matrix-valued polynomials that quadratically converge to $A^{-1}$. Because this sequence evaluates exclusively via matrix additions and matrix multiplications, it can be decomposed offline into standard orthogonal polynomial bases (such as Chebyshev polynomials). This enables flat, non-nested execution profiles within a Linear Combination of Unitaries (LCU) or Quantum Singular Value Transformation (QSVT) framework.
+
+\section{Derivation of the Newton-Schulz Approximation}
+The Newton-Schulz method is natively discovered by applying the classical multivariate Newton-Raphson root-finding algorithm to the matrix-valued residual function.
+
+\subsection{The Objective Operator Function}
+Let $A \in \mathbb{C}^{N \times N}$ be a non-singular matrix. We define a continuous matrix-valued mapping $F: \mathbb{C}^{N \times N} \to \mathbb{C}^{N \times N}$ whose root uniquely coincides with the true matrix inverse:
+\begin{equation}
+F(X) = X^{-1} - A.
+\end{equation}
+Evidently, evaluating $F(X) = 0$ yields $X^{-1} = A$, or equivalently $X = A^{-1}$.
+
+\subsection{The Newton-Raphson Recurrence Matrix Formula}
+To establish the linear operator correction rule, we consider a small structural perturbation $\Delta X$ applied to the current candidate matrix $X_n$. Expanding the inverse mapping under a first-order Taylor-series approximation yields:
+\begin{equation}
+(X_n + \Delta X)^{-1} = \left( X_n (I + X_n^{-1} \Delta X) \right)^{-1} = (I + X_n^{-1}\Delta X)^{-1} X_n^{-1}.
+\end{equation}
+Assuming the perturbation $\Delta X$ is bounded within a small spectral neighborhood ($\|X_n^{-1}\Delta X\| < 1$), we expand via a geometric series:
+\begin{equation}
+(I + X_n^{-1}\Delta X)^{-1} = I - X_n^{-1}\Delta X + \mathcal{O}(\|\Delta X\|^2).
+\end{equation}
+Substituting this back into Equation (2) isolates the first-order variation of the objective function:
+\begin{equation}
+F(X_n + \Delta X) \approx X_n^{-1} - X_n^{-1}\Delta X X_n^{-1} - A = F(X_n) - X_n^{-1}\Delta X X_n^{-1}.
+\end{equation}
+Setting the updated evaluation to zero ($F(X_n + \Delta X) = 0$) to find the ideal update step yields:
+\begin{equation}
+X_n^{-1}\Delta X X_n^{-1} = X_n^{-1} - A.
+\end{equation}
+Multiplying both the left- and right-hand sides of Equation (5) by $X_n$ effectively isolates the update matrix $\Delta X$:
+\begin{equation}
+\Delta X = X_n(X_n^{-1} - A)X_n = X_n - X_n A X_n.
+\end{equation}
+The subsequent update point $X_{n+1} = X_n + \Delta X$ immediately provides the standard \textit{Newton-Schulz} recurrence relation:
+\begin{equation}
+X_{n+1} = X_n + (X_n - X_n A X_n) = 2X_n - X_n A X_n.
+\end{equation}
+
+\section{Rigorous Error Analysis and Quadratic Convergence}
+To verify the stability, accuracy, and convergence parameters of the Newton-Schulz iteration, we define and analyze the evolution of the residual error matrix operator.
+
+\subsection{The Residual Error Evolution}
+Let $E_n \in \mathbb{C}^{N \times N}$ denote the residual identity mismatch operator at iteration step $n$:
+\begin{equation}
+E_n = I - A X_n.
+\end{equation}
+We evaluate the explicit structural form of the subsequent residual error $E_{n+1}$ by substituting the recurrence relation from Equation (7):
+\begin{equation}
+E_{n+1} = I - A X_{n+1} = I - A \left( 2X_n - X_n A X_n \right).
+\end{equation}
+Expanding and factoring Equation (9) yields:
+\begin{equation}
+E_{n+1} = I - 2A X_n + A X_n A X_n = (I - A X_n)(I - A X_n) = E_n^2.
+\end{equation}
+Equation (10) establishes the fundamental characteristic of the algorithm: the residual error squares at every single iteration tier. By mathematical induction, the error at any arbitrary tier $n \geq 0$ maps directly to the initial seed configuration:
+\begin{equation}
+E_n = (E_0)^{2^n}.
+\end{equation}
+
+\subsection{Spectral Convergence Boundaries}
+Taking the spectral norm (or operator 2-norm) of Equation (11) yields the analytical constraint required to guarantee asymptotic stability:
+\begin{equation}
+\|E_n\|_2 = \|(E_0)^{2^n}\|_2 \leq \|E_0\|_2^{2^n}.
+\end{equation}
+For the sequence to contract toward zero ($\lim_{n \to \infty} \|E_n\|_2 = 0$), the initial configuration must satisfy:
+\begin{equation}
+\|E_0\|_2 = \|I - A X_0\|_2 < 1.
+\end{equation}
+
+\subsection{The Regularized Spectral Cutoff Parameterization}
+In a practical matrix inversion algorithm, the input matrix is pre-scaled by an overall norm bounding scalar $\alpha$, mapping its singular values into a regularized domain $B = A/\alpha$, where $\sigma(B) \subseteq [a_{\text{threshold}}, 1]$. 
+
+Let the initialization seed be configured linearly as $X_0 = \gamma B = \gamma B T_1(B)$, where $\gamma$ is a rational scaling seed. The scalar error function evaluated at a specific singular value $x \in [a_{\text{threshold}}, 1]$ tracks as:
+\begin{equation}
+e_0(x) = 1 - \gamma x^2.
+\end{equation}
+To achieve balanced convergence across the edge boundaries of our operational sandbox interval $[a_{\text{threshold}}, 1]$, we enforce an equioscillation criterion such that the error magnitude at the lower threshold matches the error magnitude at the maximum unit boundary:
+\begin{equation}
+e_0(a_{\text{threshold}}) = -e_0(1) \implies 1 - \gamma a_{\text{threshold}}^2 = - (1 - \gamma \cdot 1^2).
+\end{equation}
+Solving Equation (15) isolates the unique, optimal rational seed variable $\gamma$:
+\begin{equation}
+2 = \gamma(1 + a_{\text{threshold}}^2) \implies \gamma = \frac{2}{1 + a_{\text{threshold}}^2}.
+\end{equation}
+
+\section{Exact Chebyshev Basis Expansion Profiles}
+Because the recurrence chain represents a pure odd-degree single-variable polynomial mapping $P_n(x)$ where $X_n = P_n(B)$, it can be mapped into the orthogonal Chebyshev basis $T_k(x)$. This structure ensures numerical stability and eliminates radical pollution during compilation.
+
+Under the specific parameters $a_{\text{threshold}} = \frac{1}{2}$ and its corresponding optimal rational seed $\gamma = \frac{2}{1 + (1/4)} = \frac{8}{5} = 1.6$, the precise evolution profiles for tiers $n=1, 2,$ and $3$ track via the following exact rational fields.
+
+\subsection{Iteration Tier $n=1$ (Degree-3 Layout)}
+Evaluating $P_1(x) = 2P_0(x) - x [P_0(x)]^2$ with $P_0(x) = \frac{8}{5}T_1(x)$ yields:
+\begin{equation}
+P_1(x) = \frac{32}{25}T_1(x) - \frac{16}{25}T_3(x).
+\end{equation}
+
+\subsection{Iteration Tier $n=2$ (Degree-7 Layout)}
+Evaluating the next iteration step $P_2(x) = 2P_1(x) - x [P_1(x)]^2$ over the uniform denominator \textbf{625} yields:
+\begin{equation}
+P_2(x) = \frac{960}{625}T_1(x) - \frac{544}{625}T_3(x) + \frac{192}{625}T_5(x) - \frac{64}{625}T_7(x).
+\end{equation}
+
+\subsection{Iteration Tier $n=3$ (Degree-15 Layout)}
+Evaluating $P_3(x) = 2P_2(x) - x [P_2(x)]^2$ over the uniform common denominator \textbf{390,625} yields the exact coefficient matrix:
+\begin{equation}
+P_3(x) = \sum_{k \in \{1, 3, \dots, 15\}} c_k^{(3)} T_k(x),
+\end{equation}
+where the exact rational coefficient vectors are defined explicitly as:
+\begin{equation}
+\begin{aligned}
+c_1^{(3)} &= \frac{659,840}{390,625}, \quad & c_3^{(3)} &= -\frac{439,360}{390,625}, \\
+c_5^{(3)} &= \frac{256,128}{390,625}, \quad & c_7^{(3)} &= -\frac{132,480}{390,625}, \\
+c_9^{(3)} &= \frac{56,320}{390,625}, \quad & c_{11}^{(3)} &= -\frac{20,480}{390,625}, \\
+c_{13}^{(3)} &= \frac{5,120}{390,625}, \quad & c_{15}^{(3)} &= -\frac{1,024}{390,625}.
+\end{aligned}
+\end{equation}
+
+\subsection{Numerical Point-Value Verification}
+Summing the numerators of Equation (20) verifies that at the unit singular value edge boundary ($x=1$), the Chebyshev expansion perfectly preserves the quadratic scalar trajectory:
+\begin{equation}
+P_3(1) = \frac{659840 - 439360 + 256128 - 132480 + 56320 - 20480 + 5120 - 1024}{390625} = \frac{384,064}{390,625} = \mathbf{0.98320384}.
+\end{equation}
+This confirms that the quadratic error contraction formula holds precisely down to the last decimal digit without truncation errors or floating-point precision leaks.
+
+\end{document}

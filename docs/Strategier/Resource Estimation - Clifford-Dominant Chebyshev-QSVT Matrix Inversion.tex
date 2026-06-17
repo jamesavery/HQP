@@ -1,0 +1,500 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{fancyhdr}
+
+% Page geometry
+\geometry{margin=1in}
+
+% Hyperlink setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    filecolor=magenta,
+    urlcolor=cyan!70!black,
+}
+
+% Commands
+\newcommand{\QSVT}{\textsc{qsvt}}
+\newcommand{\LCU}{\textsc{lcu}}
+\newcommand{\QFT}{\textsc{qft}}
+\newcommand{\poly}{\operatorname{poly}}
+\newcommand{\polylog}{\operatorname{polylog}}
+\newcommand{\Olog}[1]{O\left(\log(#1)\right)}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Resource Estimation for Chebyshev-QSVT \quad June 2026}
+
+\begin{document}
+
+\title{
+\textbf{
+Resource Estimation for\\
+Clifford-Dominant Chebyshev-QSVT Matrix Inversion
+}
+}
+
+\author{
+Fault-Tolerant Compilation Strategy Analysis
+}
+
+\date{June 2026}
+
+\maketitle
+
+\begin{abstract}
+This document presents resource estimates for a fault-tolerant quantum matrix inversion strategy based on Newton--Schulz iteration, Chebyshev polynomial expansion, restricted-phase QSVT, and coherent amplitude amplification through qubitization. 
+
+Unlike standard arbitrary-phase QSVT approaches, the proposed architecture attempts to localize non-Clifford synthesis costs to a small set of global primitives such as normalization and state preparation. The resulting spectral transformation layer becomes strongly Clifford-dominant, making the approach potentially attractive for early fault-tolerant quantum hardware where T-gate synthesis dominates resource costs.
+\end{abstract}
+
+\tableofcontents
+
+\vspace{1em}
+\hrule
+\vspace{1em}
+
+% =====================================================
+
+\section{Overview of the Computational Pipeline}
+
+The proposed inversion framework proceeds through the following stages:
+
+\begin{enumerate}
+    \item Classical Newton--Schulz polynomial generation,
+    \item Transformation to the Chebyshev basis,
+    \item Term-wise Chebyshev QSVT implementation,
+    \item Global LCU combination,
+    \item Coherent amplitude amplification via qubitization.
+\end{enumerate}
+
+The principal design goal is to minimize the density of non-Clifford operations while retaining coherent spectral transformation.
+
+% =====================================================
+
+\section{Classical Preprocessing}
+
+\subsection{Newton--Schulz Iteration}
+
+We construct an approximation to
+\[
+A^{-1}
+\]
+using:
+\[
+X_{k+1}
+=
+X_k(2I-AX_k).
+\]
+
+After
+\[
+k = O(\log\log(1/\epsilon))
+\]
+iterations, the approximation error satisfies:
+\[
+\|A^{-1}-X_k\|
+\le
+\epsilon.
+\]
+
+Each iterate is representable as a polynomial:
+\[
+X_k = p_k(A).
+\]
+
+The polynomial degree grows approximately as:
+\[
+\deg(p_k)
+\sim
+2^k,
+\]
+leading to an overall polylogarithmic precision dependence.
+
+\subsection{Chebyshev Re-Expansion}
+
+Rewrite:
+\[
+p_k(x)
+=
+\sum_{m=0}^{d} c_m T_m(x).
+\]
+
+Advantages of the Chebyshev basis include:
+
+\begin{itemize}
+    \item numerical stability,
+    \item direct compatibility with qubitization,
+    \item highly structured QSVT implementations,
+    \item suppression of arbitrary-angle phase synthesis.
+\end{itemize}
+
+% =====================================================
+
+\section{Resource Scaling}
+
+\subsection{Classical Complexity}
+
+\begin{table}[h]
+\centering
+\caption{Classical Complexity Estimates}
+\label{tab:classical}
+\begin{tabular}{lll}
+\toprule
+\textbf{Operation} & \textbf{Complexity} & \textbf{Notes} \\
+\midrule
+Newton--Schulz iterations & $O(\log\log(1/\epsilon))$ & Quadratic convergence \\
+Polynomial degree & $\polylog(1/\epsilon)$ & Approx.\ $2^k$ growth \\
+Basis conversion & $O(d^2)$ & Monomial $\to$ Chebyshev \\
+Coefficient storage & $O(dB)$ & $B$ = coefficient precision \\
+Coefficient precision & $O(\log\kappa+\log(1/\epsilon))$ & Approximate estimate \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The condition-number dependence is not eliminated entirely; rather, it is shifted primarily into:
+
+\begin{itemize}
+    \item coefficient magnitude,
+    \item normalization overhead,
+    \item amplification complexity.
+\end{itemize}
+
+% =====================================================
+
+\section{Quantum Resource Structure}
+
+\subsection{Restricted Chebyshev QSVT}
+
+Each operator
+\[
+T_m(A)
+\]
+is implemented independently through a restricted QSVT sequence.
+
+For Chebyshev iterates, the relevant phase angles may be chosen from:
+\[
+0,\ \pm\frac{\pi}{2},\ \pi.
+\]
+
+Consequently:
+
+\begin{itemize}
+    \item the Chebyshev-QSVT layer becomes predominantly Clifford,
+    \item arbitrary-angle synthesis is avoided at the spectral layer,
+    \item T-count no longer scales directly with polynomial degree.
+\end{itemize}
+
+\subsection{Oracle Query Complexity}
+
+If each
+\[
+T_m(A)
+\]
+requires
+\[
+O(m)
+\]
+applications of the block encoding, then:
+
+\begin{align}
+\text{Total Queries}
+&=
+O\left(
+\sum_{m=0}^d m
+\right)
+\\
+&=
+O(d^2).
+\end{align}
+
+Depending on coefficient truncation and LCU compression, practical scaling may be closer to:
+\[
+O(\lambda d),
+\]
+where
+\[
+\lambda
+=
+\sum_m |c_m|.
+\]
+
+% =====================================================
+
+\section{Ancilla Requirements}
+
+\subsection{Index Registers}
+
+The LCU index register requires:
+\[
+q_{\mathrm{idx}}
+=
+\lceil
+\log_2(d+1)
+\rceil
+=
+O(\log d).
+\]
+
+Since:
+\[
+d = \polylog(1/\epsilon),
+\]
+this becomes:
+\[
+q_{\mathrm{idx}}
+=
+O(\log\log(1/\epsilon)).
+\]
+
+\subsection{Additional Ancillas}
+
+Additional ancillas include:
+
+\begin{itemize}
+    \item qubitization controls,
+    \item reflection registers,
+    \item sparse oracle workspaces,
+    \item arithmetic scratch space.
+\end{itemize}
+
+The dominant ancilla overhead depends primarily on the block-encoding architecture.
+
+% =====================================================
+
+\section{Localization of Non-Clifford Cost}
+
+The key architectural principle is:
+
+\begin{quote}
+Non-Clifford synthesis should be concentrated into a small number of global primitives.
+\end{quote}
+
+The dominant non-Clifford contributors are expected to be:
+
+\begin{enumerate}
+    \item global LCU normalization,
+    \item state preparation,
+    \item oracle synthesis,
+    \item approximate Fourier rotations,
+    \item sparse arithmetic subroutines.
+\end{enumerate}
+
+In contrast, the spectral transformation layer itself remains largely Clifford-dominant.
+
+% =====================================================
+
+\section{Global LCU Normalization}
+
+The full operator is represented as:
+\[
+\mathcal O
+=
+\sum_{m=0}^{d}
+c_m U_m,
+\]
+where:
+\[
+U_m
+\approx
+T_m(A).
+\]
+
+Define:
+\[
+\lambda
+=
+\sum_{m=0}^{d}
+|c_m|.
+\]
+
+Naive postselection yields success probability:
+\[
+P_{\mathrm{succ}}
+\sim
+\frac{1}{\lambda^2}.
+\]
+
+For inversion-like spectral transforms, one expects:
+\[
+\lambda
+=
+O(\kappa)
+\]
+in many practical regimes.
+
+% =====================================================
+
+\section{Qubitization and Coherent Amplitude Recovery}
+
+Rather than relying on repeated postselection, we employ coherent amplitude amplification through qubitization.
+
+Suppose:
+\[
+(\langle 0|\otimes I)
+U
+(|0\rangle\otimes I)
+=
+A/\lambda.
+\]
+
+The block encoding already contains the corresponding isometric structure associated with the success subspace.
+
+Lemma 28 of Gily\'en et al.\ converts the suppressed success amplitude:
+\[
+1/\lambda
+\]
+into an effective SU(2)-type spectral rotation.
+
+Applying Chebyshev-QSVT to the resulting qubiterate amplifies:
+\[
+\sin(\theta)
+=
+1/\lambda
+\]
+into:
+\[
+\sin((2k+1)\theta).
+\]
+
+This reduces effective repetition overhead from:
+\[
+O(\lambda^2)
+\]
+to:
+\[
+O(\lambda).
+\]
+
+Crucially, this amplification procedure remains compatible with the restricted Chebyshev phase structure.
+
+% =====================================================
+
+\section{Approximate T-Count Structure}
+
+A schematic decomposition of total T-cost is:
+
+\[
+T_{\mathrm{total}}
+=
+T_{\mathrm{oracle}}
++
+T_{\mathrm{prepare}}
++
+T_{\mathrm{normalize}}
++
+T_{\mathrm{controls}}.
+\]
+
+Importantly:
+
+\[
+T_{\mathrm{Chebyshev\ QSVT}}
+\approx
+\text{negligible relative to arbitrary-phase QSVT}.
+\]
+
+This represents the central resource-separation principle of the proposed framework.
+
+\begin{table}[h]
+\centering
+\caption{Qualitative T-Count Comparison}
+\label{tab:tcount}
+\begin{tabular}{lll}
+\toprule
+\textbf{Component} & \textbf{Standard QSVT} & \textbf{Proposed Method} \\
+\midrule
+Phase synthesis & High & Low \\
+Spectral layer T-density & High & Clifford-dominant \\
+Normalization cost & Moderate & Concentrated/global \\
+Oracle dependence & Moderate & Dominant contributor \\
+Amplitude amplification & Arbitrary phases & Chebyshev-compatible \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =====================================================
+
+\section{Compiler Implications}
+
+The proposed architecture naturally aligns with:
+
+\begin{itemize}
+    \item Ross--Selinger synthesis,
+    \item GridSynth,
+    \item repeat-until-success compilation,
+    \item Clifford+T optimization,
+    \item symbolic spectral compilation methods.
+\end{itemize}
+
+Because non-Clifford rotations appear comparatively sparsely, high-precision synthesis can be concentrated on a small subset of gates.
+
+% =====================================================
+
+\section{Simulation Strategy}
+
+A Haskell simulation framework is planned to:
+
+\begin{itemize}
+    \item generate Newton--Schulz iterates,
+    \item perform Chebyshev decomposition,
+    \item synthesize restricted QSVT sequences,
+    \item simulate LCU/qubitization pipelines,
+    \item estimate Clifford/T resources,
+    \item benchmark against arbitrary-phase QSVT baselines.
+\end{itemize}
+
+Particular focus will be placed on:
+
+\begin{itemize}
+    \item sparse and banded matrices,
+    \item PDE discretizations,
+    \item structured Hamiltonians,
+    \item low-T fault-tolerant compilation.
+\end{itemize}
+
+% =====================================================
+
+\section{Conclusion}
+
+We presented a resource-estimation framework for a Clifford-dominant matrix inversion strategy based on:
+
+\begin{enumerate}
+    \item Newton--Schulz polynomial generation,
+    \item Chebyshev spectral transforms,
+    \item restricted-phase QSVT,
+    \item and coherent amplitude amplification.
+\end{enumerate}
+
+The primary conceptual contribution is the separation between:
+
+\[
+\text{spectral processing complexity}
+\quad\text{and}\quad
+\text{non-Clifford synthesis complexity}.
+\]
+
+Rather than distributing arbitrary-angle synthesis throughout the entire QSVT sequence, the proposed framework attempts to localize non-Clifford overhead to a small set of global compilation primitives.
+
+\vspace{2em}
+
+\hrule
+
+\vspace{1em}
+
+\noindent
+\textit{
+Resource estimation companion document for the low-T Chebyshev-QSVT framework.
+}
+
+\end{document}

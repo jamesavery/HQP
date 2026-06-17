@@ -11,10 +11,11 @@ import Control.Monad.ST (runST)
 import qualified Data.Vector as V          -- Boxed Vector
 import qualified Data.Vector.Mutable as VM  -- Mutable Boxed Vector
 import qualified Data.Vector.Unboxed as U   -- For the dense matrix underlying data
+import Debug.Trace
 
 ----------------------------------------------------------------------------------------
 -- Unitary encoding U_A
--- 
+-- This is Theorem 4.1 Camps et al. arXiv:2203.10236v4
 ----------------------------------------------------------------------------------------
 
 sparseUAEncoding :: Nat -> QOp -> QOp -> QOp
@@ -53,7 +54,7 @@ valueOracle rotBlocks =
         n = op_qubits dsQop
         pQOp = Permute ([1 .. (n-1)] ++ [0])
     in 
-        (Adjoint pQOp) <> dsQop <> pQOp
+        (Adjoint pQOp) ∘ dsQop ∘ pQOp
 
 ----------------------------------------------------------------------------------------
 -- Reading data from the [[ComplexT]] containing the sparse data

@@ -1,0 +1,183 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+
+\usepackage[margin=2cm]{geometry}
+
+\begin{document}
+
+\section*{Unitary Implementation of a dyadic LCU}
+
+Let
+\[
+P(A) = \sum_{k=1}^K c_k\, U_k
+\]
+be a linear combination of unitary operators $U_k$ with real coefficients $c_k$
+satisfying
+\[
+\sum_{k=1}^K |c_k| = 1.
+\]
+
+\medskip
+
+To implement this operator using a uniform superposition, we introduce a
+discretization parameter $m \in \mathbb{N}$ and define integers
+\[
+n_k \in \mathbb{N}
+\quad \text{such that} \quad
+c_k \approx \sigma(c_k) \frac{n_k}{2^m},
+\qquad
+\sum_{k=1}^K n_k = 2^m.
+\]
+where $\sigma(c_k)$ designates the sign of $c_k$.
+
+
+Thus, each coefficient $c_k$ is approximated by a rational number with denominator $2^m$,
+and $n_k$ represents the discrete weight (multiplicity) of $U_k$.
+
+\medskip
+
+Using the integers $n_k$, we define intervals
+\[
+I_k = [l_k, h_k),
+\]
+where
+\[
+l_1 = 0, \qquad
+l_k = \sum_{j=1}^{k-1} n_j, \qquad
+h_k = \sum_{j=1}^{k} n_j.
+\]
+
+These intervals form a partition
+\[
+\bigcup_{k=1}^K I_k = \{0,1,\dots,2^m - 1\},
+\qquad
+I_k \cap I_j = \varnothing \ \text{for } k \ne j,
+\]
+and satisfy
+\[
+|I_k| = n_k.
+\]
+
+\medskip
+
+
+
+Then we obtain the identity
+\[
+\boxed{
+\sum_{k=1}^K \sigma(c_k)\frac{n_k}{2^m}\, U_k
+\approx
+\sum_{k=1}^K c_k\, U_k.
+}
+\]
+
+\medskip
+
+This shows that the linear combination is realized as a uniform average
+over the index register, where each unitary $U_k$ appears with multiplicity $n_k$.
+
+
+\section*{Hilbert space structure}
+
+We consider a Hilbert space of the form
+\[
+\mathcal{H}
+= \mathcal{H}_x \otimes \mathcal{H}_b \otimes \mathcal{H}_{\mathrm{sys}},
+\]
+where:
+\begin{itemize}
+\item $\mathcal{H}_x$ is the address register (of size $2^m$),
+\item $\mathcal{H}_b$ is a single ancilla qubit,
+\item $\mathcal{H}_{\mathrm{sys}}$ is the system on which the operators $U_k$ act.
+\end{itemize}
+
+
+\section*{Operator primitives}
+
+We assume the following unitary primitives:
+
+\begin{enumerate}
+\item \textbf{Comparator unitary}
+\[
+C_k \in \mathcal{U}(\mathcal{H}_x \otimes \mathcal{H}_b),
+\]
+defined by
+\[
+C_k \colon | x,b \rangle \mapsto | x,\, b \oplus \chi_{I_k}(x) \rangle,
+\]
+where $\chi_{I_k}(x)$ is the indicator function of the interval $I_k$.
+So
+$$
+C_k = \bigoplus\limits_{x = 0,\dots,2^m - 1} X^{\chi_{I_k}(x)}
+$$
+
+\[
+\chi_{I_k}(x) =
+\begin{cases}
+1, & x \in I_k, \\
+0, & x \notin I_k.
+\end{cases}
+\]
+
+This operator is reversible and hence unitary, with
+\[
+C_k^{-1} = C_k^\dagger.
+\]
+
+\item \textbf{Controlled operator}
+\[
+ C(\sigma(c_k)U_k) \in \mathcal{U}(\mathcal{H}_b \otimes \mathcal{H}_{\mathrm{sys}}),
+\]
+which acts as
+\[
+\text{``apply } \sigma(c_k)U_k \text{ if the ancilla is } 1,\ \text{otherwise } I.
+\]
+\end{enumerate}
+
+\section*{Lifting to the full space}
+
+We extend these operators to the full space:
+\[
+\widetilde{C}_k = C_k \otimes I_{\mathrm{sys}},
+\]
+\[
+\widetilde{U}_k = I_x \otimes C(\sigma(c_k)U_k)
+\]
+
+\section*{Construction of a single block}
+
+For each $k$, define the unitary operator
+\[
+S_k
+= \widetilde{C}_k^\dagger
+\circ \widetilde{U}_k
+\circ \widetilde{C}_k.
+\]
+
+This operator has the following interpretation:
+
+\begin{itemize}
+\item $\widetilde{C}_k$ computes whether $x \in I_k$ into the ancilla,
+\item $\widetilde{U}_k$ conditionally applies $\sigma(c_k)U_k$ to the system qubits.
+\item $\widetilde{C}_k^\dagger$ uncomputes the ancilla.
+\end{itemize}
+
+Since it is a composition of unitary operators, $S_k$ is unitary.
+
+\section*{Composit SELECT operator}
+
+The SELECT operator is defined by composition:
+\[
+\boxed{
+\mathrm{SELECT}
+= S_1 \circ S_2 \circ \cdots \circ S_K.
+}
+\]
+\section*{PREPARE operator}
+The PREPARE operator is a simple diffuser
+\[
+\mathrm{PREPARE}\, |0\rangle
+= \frac{1}{\sqrt{2^m}} \sum_{x=0}^{2^m-1} |x\rangle
+\]
+Implemented using a tensorproduct of Hadamard gates.
+\end{document}

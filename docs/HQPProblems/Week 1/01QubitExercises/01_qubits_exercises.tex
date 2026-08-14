@@ -1,0 +1,85 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{physics}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\title{ATPL 2026 --- Exercises: Qubits}
+\author{Introduction to Quantum Computing}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent These exercises accompany Lecture 0 (\emph{Introduction to (non-Hybrid)
+Quantum Computing}).\\ 
+
+\noindent To supplement the exercises, QPP contains a code file \textit{QubitsProblem.hs}, with exercises for Haskell and QPP library training, similar to the topics found here.\\
+
+\noindent Background reading: Nielsen \& Chuang, Section 1.2 and the beginning of Section 2.1 (on Hilbert spaces and Dirac notation).
+
+\begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
+
+\item \textbf{Normalization.}
+For which real values of $a$ is
+\[
+\ket{\psi} = a \ket{0} + \sqrt{1-a^2}\, i \ket{1}
+\]
+a valid qubit state? Compute $\braket{\psi}{\psi}$ to justify your answer,
+and identify the range of $a$ for which the expression under the square
+root is meaningful.
+
+\item \textbf{Change of basis.}
+Recall $\ket{+} = \tfrac{1}{\sqrt2}(\ket0+\ket1)$ and
+$\ket{-} = \tfrac1{\sqrt2}(\ket0-\ket1)$.
+\begin{enumerate}[label=(\alph*)]
+\item Show that $\{\ket{+},\ket{-}\}$ is an orthonormal basis of
+$\mathbb{C}^2$.
+\item Write $\ket{\psi} = \tfrac{1}{\sqrt5}\ket0 + \tfrac{2}{\sqrt5}\ket1$
+in the $\{\ket+,\ket-\}$ basis, and verify that the resulting coefficients
+still satisfy $|b_0|^2+|b_1|^2=1$.
+\end{enumerate}
+
+\item \textbf{Inner products and Riesz representation.}
+Let $\ket{\psi} = a_0\ket0+a_1\ket1$ and $\ket{\varphi}=c_0\ket0+c_1\ket1$.
+\begin{enumerate}[label=(\alph*)]
+\item Write $\bra\psi$ explicitly as the linear functional
+$\ket\varphi \mapsto \braket{\psi}{\varphi}$, in terms of the components
+$a_0,a_1$.
+\item Verify directly that $\braket{\psi}{\varphi} =
+\overline{\braket{\varphi}{\psi}}$.
+\end{enumerate}
+
+\item \textbf{Global phase is unobservable.}
+Let $\ket{\psi'} = e^{i\alpha}\ket\psi$ for some real $\alpha$. Show that
+for \emph{any} observable of the form $\bra\psi O \ket\psi$ built from a
+Hermitian operator $O$, the value $\bra{\psi'} O \ket{\psi'}$ is identical
+to $\bra\psi O \ket\psi$. What does this tell you about how many real
+parameters are needed to specify a physically distinguishable qubit state?
+
+\item \textbf{From two basis states to a qubit.}
+Physically, a qubit is built by choosing two long-lived eigenstates
+$\ket{\varphi_0},\ket{\varphi_1}$ of a Hamiltonian $H$ (e.g.\ two atomic
+energy levels) and calling them $\ket0,\ket1$.
+\begin{enumerate}[label=(\alph*)]
+\item If $H\ket{\varphi_k} = E_k \ket{\varphi_k}$ for $k=0,1$, write down
+the time-evolved state $\ket{\psi(t)}$ starting from
+$\ket{\psi(0)} = a_0\ket0+a_1\ket1$, using the Schr\"odinger equation from
+the lecture.
+\item Show that $|a_0(t)|^2$ and $|a_1(t)|^2$ are constant in time (i.e.\
+an isolated qubit's measurement statistics in the $\{\ket0,\ket1\}$ basis
+do not change under free evolution), even though the state itself
+acquires time-dependent \emph{relative} phase.
+\end{enumerate}
+
+\item \textbf{(Optional, for discussion) Why $\mathbb{C}^2$ and not
+$\mathbb{R}^2$?}
+Give a short argument, based on what unitary evolution and measurement
+require, for why a qubit's amplitudes must be allowed to be complex
+rather than merely real numbers. (Hint: think about how many
+one-qubit unitary operations you can build using only real
+$2\times2$ orthogonal matrices, versus using unitary matrices.)
+
+\end{enumerate}
+
+\end{document}

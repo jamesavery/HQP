@@ -1,0 +1,92 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{physics}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\title{ATPL 2025 --- Exercises: Tensor Products (States and Operators)}
+\author{Introduction to Quantum Computing}
+\date{}
+
+\begin{document}
+\maketitle
+
+Background reading: Nielsen \& Chuang, Section 2.1.7 (tensor products).
+
+\begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
+
+\item \textbf{Computing simple tensor products.}
+Let $\ket{\psi_1} = a_0\ket0+a_1\ket1$ and $\ket{\psi_2}=b_0\ket0+b_1\ket1$.
+\begin{enumerate}[label=(\alph*)]
+\item Write out $\ket{\psi_1}\otimes\ket{\psi_2}$ explicitly in the
+computational basis $\{\ket{00},\ket{01},\ket{10},\ket{11}\}$.
+\item Take $\ket{\psi_1}=\ket{\psi_2}=\ket+$ and compute
+$\ket+\otimes\ket+$ as a vector of 4 amplitudes. Check it is normalized.
+\end{enumerate}
+
+\item \textbf{Not every 2-qubit vector is a product state.}
+Consider the Bell state $\ket{\Phi^+}=\tfrac1{\sqrt2}(\ket{00}+\ket{11})$.
+Suppose, for contradiction, that
+$\ket{\Phi^+}=(a_0\ket0+a_1\ket1)\otimes(b_0\ket0+b_1\ket1)$ for some
+$a_0,a_1,b_0,b_1\in\mathbb C$.
+\begin{enumerate}[label=(\alph*)]
+\item Write down the four equations this implies for the coefficients of
+$\ket{00},\ket{01},\ket{10},\ket{11}$.
+\item Show these equations are inconsistent, and conclude that
+$\ket{\Phi^+}$ is entangled.
+\end{enumerate}
+
+\item \textbf{Dimension counting.}
+An $n$-qubit register lives in $\bigotimes_{i=1}^n \mathbb C^2 =
+\mathbb C^{2^n}$.
+\begin{enumerate}[label=(\alph*)]
+\item How many complex amplitudes are needed to specify a general
+10-qubit state? How many \emph{real} parameters, after removing
+normalization and global phase?
+\item How many real parameters would be needed to specify 10
+\emph{independent} qubits (i.e.\ a product state
+$\ket{\psi_1}\otimes\cdots\otimes\ket{\psi_{10}}$)? Compare the two
+answers and comment on what this says about the size of the state space
+that entanglement gives you access to.
+\end{enumerate}
+
+\item \textbf{Tensor products of operators (Kronecker product).}
+Recall that for operators $A$ on $h_1$ and $B$ on $h_2$, the operator
+$A\otimes B$ on $h_1\otimes h_2$ acts as
+$(A\otimes B)(\ket\psi\otimes\ket\varphi) = (A\ket\psi)\otimes(B\ket\varphi)$.
+\begin{enumerate}[label=(\alph*)]
+\item Write out the $4\times4$ matrix for $X\otimes I$ and for
+$I\otimes X$, using the ordering $\{\ket{00},\ket{01},\ket{10},\ket{11}\}$.
+Confirm they are different matrices, and explain in words what each one
+does physically.
+\item Compute $(X\otimes I)\ket{\Phi^+}$ and $(I\otimes X)\ket{\Phi^+}$
+for the Bell state above. Are the results still entangled?
+\item Show that $(A\otimes B)(C\otimes D) = (AC)\otimes(BD)$ for
+compatible operators $A,B,C,D$, and use this to compute
+$(X\otimes Z)(H\otimes H)$ without expanding either matrix fully to
+$4\times4$ first.
+\end{enumerate}
+
+\item \textbf{CNOT and entangling a product state.}
+The CNOT gate is
+\[
+\mathrm{CNOT} = \ket0\!\bra0\otimes I + \ket1\!\bra1\otimes X.
+\]
+\begin{enumerate}[label=(\alph*)]
+\item Write CNOT as a $4\times4$ matrix in the computational basis.
+\item Apply CNOT to $\ket+\otimes\ket0 = \tfrac1{\sqrt2}(\ket{00}+\ket{10})$
+and show the result is exactly the Bell state $\ket{\Phi^+}$ (up to
+relabelling). This is the standard circuit for creating entanglement
+from a product state using $H$ then CNOT.
+\end{enumerate}
+
+\item \textbf{General multi-qubit unitary from small pieces (conceptual).}
+The lecture states that any $2^n\times2^n$ unitary can be decomposed into
+1-qubit unitaries and CNOTs. Given only the gate set $\{H, R_Z(\theta),
+\mathrm{CNOT}\}$ acting on 3 qubits, describe (no need for an explicit
+matrix) a sequence of gates that prepares the GHZ state
+$\tfrac1{\sqrt2}(\ket{000}+\ket{111})$ starting from $\ket{000}$.
+
+\end{enumerate}
+
+\end{document}

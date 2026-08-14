@@ -1,0 +1,99 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{physics}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\title{ATPL 2025 --- Exercises: Measurement}
+\author{Introduction to Quantum Computing}
+\date{}
+
+\begin{document}
+\maketitle
+
+Background reading: Nielsen \& Chuang, Section 2.2.3 (projective
+measurements).
+
+\begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
+
+\item \textbf{Measurement probabilities in the computational basis.}
+Let $\ket\psi = \sqrt{1/5}\,\ket0 + \sqrt{4/5}\,\ket1$.
+\begin{enumerate}[label=(\alph*)]
+\item What are the probabilities of obtaining $\ket0$ and $\ket1$ when
+measuring $\ket\psi$ in the $\{\ket0,\ket1\}$ basis?
+\item What is the post-measurement state in each case?
+\end{enumerate}
+
+\item \textbf{Measuring in a rotated basis.}
+Using the same $\ket\psi$ as above, express it in the $\{\ket+,\ket-\}$
+basis and compute the probabilities of obtaining $\ket+$ and $\ket-$.
+Compare with Exercise 1: why can the same physical state give very
+different-looking measurement statistics depending on the chosen basis?
+
+\item \textbf{A state that is deterministic in one basis, random in
+another.}
+Take $\ket\psi = \ket+$.
+\begin{enumerate}[label=(\alph*)]
+\item What is the outcome probability distribution when measuring in the
+$\{\ket+,\ket-\}$ basis?
+\item What is the outcome probability distribution when measuring in the
+$\{\ket0,\ket1\}$ basis? Show your work using
+$\ket+=\tfrac1{\sqrt2}(\ket0+\ket1)$.
+\end{enumerate}
+
+\item \textbf{Partial measurement of an entangled state.}
+Consider $\ket\psi = \tfrac1{\sqrt2}(\ket{00}+\ket{11})$.
+\begin{enumerate}[label=(\alph*)]
+\item If the first qubit is measured in the $\{\ket0,\ket1\}$ basis,
+list the possible outcomes, their probabilities, and the resulting
+2-qubit post-measurement state in each case.
+\item Suppose instead you measure only the \emph{second} qubit. Argue
+(by symmetry of $\ket\psi$, or by direct computation) that you get the
+same outcome probabilities and correlations as in part (a).
+\item Now consider $\ket\varphi = \tfrac12(\ket{00}+\ket{01}+\ket{10}-\ket{11})$.
+Measure the first qubit in the computational basis: what are the
+probabilities and post-measurement states? Is the resulting second-qubit
+state, conditioned on the outcome, itself a definite classical bit
+value, or a superposition?
+\end{enumerate}
+
+\item \textbf{Unequal superpositions and biased coins.}
+A biased "quantum coin" is prepared as
+$\ket\psi = \sqrt p\,\ket0 + \sqrt{1-p}\,\ket1$ for $p\in[0,1]$ (ignoring
+relative phase for simplicity).
+\begin{enumerate}[label=(\alph*)]
+\item For what value of $p$ does measuring $\ket\psi$ in the
+computational basis reproduce a fair classical coin flip?
+\item Design (in words, or as a short gate sequence using an
+$R_Y(\theta)$ rotation of your choice) a way to prepare $\ket\psi$ for
+general $p$ starting from $\ket0$.
+\end{enumerate}
+
+\item \textbf{Measurement destroys information: no-cloning intuition.}
+Explain in your own words, using the results from Exercises 1--2, why
+you cannot recover the full description $(a_0,a_1)$ of an unknown qubit
+state $\ket\psi=a_0\ket0+a_1\ket1$ from a single measurement, or even
+from many measurements of a \emph{single} copy of $\ket\psi$. What
+\emph{can} you learn about $(a_0,a_1)$ if you are given many independent
+identically prepared copies of $\ket\psi$ and are free to choose your
+measurement basis?
+
+\item \textbf{Projective measurement as a projector (optional, more
+formal).}
+A projective measurement of qubit $k$ with outcome $v\in\{0,1\}$ can be
+written as applying the projector $P_v^{(k)} = I^{\otimes(k-1)}\otimes
+\ket v\!\bra v \otimes I^{\otimes(n-k)}$ to an $n$-qubit state and then
+renormalizing.
+\begin{enumerate}[label=(\alph*)]
+\item Verify that $P_0^{(1)}$ and $P_1^{(1)}$ applied to
+$\ket{\Phi^+}=\tfrac1{\sqrt2}(\ket{00}+\ket{11})$ reproduce the two
+post-measurement states you found in Exercise 4(a), including correct
+normalization.
+\item Show that $P_0^{(k)}+P_1^{(k)} = I$, and explain why this is
+exactly the statement that "the probability of measuring something is
+always 1" from the lecture.
+\end{enumerate}
+
+\end{enumerate}
+
+\end{document}

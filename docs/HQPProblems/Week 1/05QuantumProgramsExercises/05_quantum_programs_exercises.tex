@@ -1,0 +1,100 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{physics}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{listings}
+
+\lstset{basicstyle=\ttfamily\small, columns=fullflexible, keywordstyle=\bfseries}
+
+\title{ATPL 2025 --- Exercises: Quantum Programs}
+\author{Introduction to Quantum Computing}
+\date{}
+
+\begin{document}
+\maketitle
+
+Background: the \texttt{Step}/\texttt{Program} model and \texttt{Op} data
+type from the lecture, and Nielsen \& Chuang Section 4.2--4.3 on
+universal gate sets.
+
+\begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
+
+\item \textbf{Unitarity from probability conservation.}
+Redo the argument from the lecture in your own words: given a pure
+quantum program $P$ acting on an $n$-qubit state, explain precisely why
+requiring $\sum_i |a_i|^2 = \sum_i |b_i|^2 = 1$ for \emph{every} possible
+input state $\ket\Psi=\sum_i a_i\ket i$ forces $P$ (as a matrix) to
+satisfy $P^\dagger P = I$. (Hint: consider
+$\braket{\Psi}{\Psi} = \bra\Psi P^\dagger P\ket\Psi$ and use that this
+must equal $1$ for all normalized $\ket\Psi$.)
+
+\item \textbf{Reading circuits as \texttt{Op} expressions.}
+Using the grammar
+\[
+\begin{aligned}
+\texttt{Op} ::= {}&
+    I \mid X \mid SX \mid Y \mid Z \mid H \mid R\ \texttt{Op}\ \theta \\
+  &\mid C\ \texttt{Op} \mid SWAP \\
+  &\mid \texttt{Tensor}\ \texttt{Op}\ \texttt{Op} \\
+  &\mid \texttt{DirectSum}\ \texttt{Op}\ \texttt{Op} \\
+  &\mid \texttt{Compose}\ \texttt{Op}\ \texttt{Op}.
+\end{aligned}
+\]
+write down the \texttt{Op} expression, and the corresponding matrix, for:
+\begin{enumerate}[label=(\alph*)]
+\item Applying $H$ to qubit 1 and doing nothing to qubit 2
+(2-qubit operator).
+\item CNOT with qubit 1 as control and qubit 2 as target, expressed using
+\texttt{C}.
+\item The circuit that prepares the Bell state $\ket{\Phi^+}$ from
+$\ket{00}$ (Hadamard on qubit 1, then CNOT).
+\end{enumerate}
+
+\item \textbf{Programs as sequences of Steps.}
+Using the \texttt{data Step = Op | Measure Int} and
+\texttt{data Program = List Step} definitions from the lecture, write
+out (as a list of \texttt{Step}s, in pseudo-Haskell) a 2-qubit program
+that:
+\begin{enumerate}[label=(\alph*)]
+\item Prepares $\ket{\Phi^+}$ and then measures qubit 1.
+\item Prepares $\ket{\Phi^+}$, measures qubit 1, and then \emph{also}
+measures qubit 2. What outcome distribution do you expect for the second
+measurement, given each possible outcome of the first? Justify using the
+measurement exercises.
+\end{enumerate}
+
+\item \textbf{DirectSum and multiplexed operations.}
+The slide describes \texttt{DirectSum} as "multiplexed operations —
+generalizing conditional execution." Consider
+$U = \texttt{DirectSum}\ U_0\ U_1$ where $U_0,U_1$ are 1-qubit unitaries,
+acting on a 2-qubit system where the first qubit is the "control."
+\begin{enumerate}[label=(\alph*)]
+\item Write $U$ as a $4\times4$ block-diagonal matrix in terms of the
+$2\times2$ matrices for $U_0$ and $U_1$.
+\item Show that $\texttt{DirectSum}\ I\ X$ is exactly CNOT (with the
+convention from Exercise 4 above). What is $\texttt{DirectSum}\ I\ I$?
+\item Explain in one or two sentences why \texttt{DirectSum} is a
+natural generalization of classical \texttt{if/else} branching to the
+quantum setting, and why it must still be built from a \emph{unitary}
+$U_0$ and $U_1$ rather than arbitrary classical branches.
+\end{enumerate}
+
+\item \textbf{Universality (conceptual, tie-together).}
+The lecture claims that one general single-qubit rotation, one fixed
+orthogonal rotation by $\pi/2$, and CNOT are enough to build any pure
+quantum program.
+\begin{enumerate}[label=(\alph*)]
+\item Using only $\{H, R_Z(\theta) \text{ for any } \theta, \mathrm{CNOT}\}$,
+sketch how you would build an arbitrary single-qubit unitary $U$ (recall
+the $\mathbf n\cdot\boldsymbol\sigma$ decomposition from the Pauli/Bloch
+exercises, and that $H$ conjugates $Z$-rotations into $X$-rotations).
+\item Why is a 2-qubit entangling gate like CNOT specifically necessary
+--- i.e.\ why can no sequence of \texttt{Tensor}-only (single-qubit)
+operations ever prepare an entangled state such as $\ket{\Phi^+}$? (You
+already proved the key fact in the tensor-product exercises.)
+\end{enumerate}
+
+\end{enumerate}
+
+\end{document}

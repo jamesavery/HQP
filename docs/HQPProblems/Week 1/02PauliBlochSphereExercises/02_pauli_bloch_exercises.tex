@@ -1,0 +1,101 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{physics}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\title{ATPL 2025 --- Exercises: Pauli Matrices and the Bloch Sphere}
+\author{Introduction to Quantum Computing}
+\date{}
+
+\begin{document}
+\maketitle
+
+Background reading: Nielsen \& Chuang, Section 2.1.8 (matrix
+exponentials) and the Bloch sphere discussion in Section 1.2.
+
+\begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
+
+\item \textbf{Basic Pauli algebra.}
+Using
+\[
+X=\begin{pmatrix}0&1\\1&0\end{pmatrix},\quad
+Y=\begin{pmatrix}0&-i\\i&0\end{pmatrix},\quad
+Z=\begin{pmatrix}1&0\\0&-1\end{pmatrix},
+\]
+verify by direct matrix multiplication that
+\begin{enumerate}[label=(\alph*)]
+\item $X^2=Y^2=Z^2=I$;
+\item $XY = iZ$, $YZ = iX$, $ZX = iY$ (and hence
+$\{X,Y,Z\}$ do \emph{not} commute: e.g.\ compute $YX$ and compare);
+\item $\mathrm{Tr}(X)=\mathrm{Tr}(Y)=\mathrm{Tr}(Z)=0$, and each has
+eigenvalues $\pm1$.
+\end{enumerate}
+
+\item \textbf{Eigenvectors of the Pauli matrices.}
+Find the normalized eigenvectors of $X$, $Y$, and $Z$ and their
+eigenvalues. Relate the $Z$-eigenvectors to $\ket0,\ket1$ and the
+$X$-eigenvectors to $\ket+,\ket-$ from the previous exercise sheet.
+What are the Bloch-sphere directions (poles) associated with each pair of
+eigenvectors?
+
+\item \textbf{Any $2\times2$ Hermitian matrix is a real combination of
+$I,X,Y,Z$.}
+Show that $\{I,X,Y,Z\}$ forms a basis for the (real) vector space of
+$2\times2$ Hermitian matrices, i.e.\ that every Hermitian $2\times2$
+matrix $H$ can be written uniquely as
+$H = c_0 I + c_1 X + c_2 Y + c_3 Z$ with $c_0,c_1,c_2,c_3\in\mathbb R$.
+Give a formula for the $c_i$ in terms of traces, e.g.\ $c_1 =
+\tfrac12\mathrm{Tr}(HX)$.
+
+\item \textbf{From generator to rotation.}
+The lecture states that any $2\times2$ unitary can be written as
+$e^{-i\delta/2} e^{-i\frac\theta2 \mathbf n\cdot\boldsymbol\sigma}$ for a
+unit vector $\mathbf n=(n_x,n_y,n_z)$.
+\begin{enumerate}[label=(\alph*)]
+\item Show that $(\mathbf n \cdot \boldsymbol\sigma)^2 = I$ for any unit
+vector $\mathbf n$.
+\item Using part (a) and the Taylor series of the matrix exponential,
+derive the closed form
+\[
+e^{-i\frac\theta2 \mathbf n\cdot\boldsymbol\sigma}
+= \cos\!\left(\frac\theta2\right) I
+- i\sin\!\left(\frac\theta2\right) (\mathbf n\cdot\boldsymbol\sigma).
+\]
+\item Specialize to $\mathbf n = \hat z$ and write out
+$e^{-i\frac\theta2 Z}$ explicitly as a $2\times2$ matrix.
+\end{enumerate}
+
+\item \textbf{Rotations really rotate the Bloch vector.}
+For a qubit state $\ket\psi = \cos(\theta/2)\ket0 + e^{i\phi}\sin(\theta/2)\ket1$,
+the associated Bloch vector is
+$\mathbf r = (\sin\theta\cos\phi,\ \sin\theta\sin\phi,\ \cos\theta)$,
+and one can show $\mathbf r = \bra\psi \boldsymbol\sigma \ket\psi$
+(component-wise).
+\begin{enumerate}[label=(\alph*)]
+\item Compute the Bloch vector of $\ket0$, $\ket1$, $\ket+$, $\ket-$.
+\item Apply $e^{-i\frac\theta2 Z}$ to $\ket+$ and compute the resulting
+Bloch vector as a function of $\theta$. Confirm it traces out a circle
+around the $z$-axis as $\theta$ varies, consistent with the claim that
+$Z$-rotations rotate the Bloch sphere about the $z$-axis.
+\end{enumerate}
+
+\item \textbf{Non-orthogonal on the Bloch sphere.}
+The lecture notes that the Bloch-sphere map is nonlinear, so orthogonal
+\emph{states} become \emph{antipodal} points rather than
+perpendicular vectors. Verify this explicitly: show that $\ket0$ and
+$\ket1$ are orthogonal as vectors ($\braket01=0$) but that their Bloch
+vectors are $(0,0,1)$ and $(0,0,-1)$ --- i.e.\ antipodal, not orthogonal,
+points on the sphere. Do the same for $\ket+,\ket-$.
+
+\item \textbf{Decomposing a target unitary (harder).}
+The Hadamard gate is $H=\tfrac1{\sqrt2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}$.
+Find $\delta,\theta,\mathbf n$ such that
+$H = e^{-i\delta/2}e^{-i\frac\theta2\mathbf n\cdot\boldsymbol\sigma}$.
+(Hint: first find the axis $\mathbf n$ from $H$'s eigenvectors, then use
+$\mathrm{Tr}(H) = 2\cos(\theta/2)e^{-i\delta/2}$ to pin down $\theta$ and
+$\delta$.)
+
+\end{enumerate}
+
+\end{document}

@@ -8,7 +8,7 @@ import HQP.PrettyPrint
 import Programs.MatrixPreparation
 import Programs.MatrixArithmetic
 
-import Numeric.LinearAlgebra (fromLists, norm_Frob,dispcf)
+import Numeric.LinearAlgebra (fromLists,norm_Frob,dispcf)
 
 import Control.Monad (forM_)
  

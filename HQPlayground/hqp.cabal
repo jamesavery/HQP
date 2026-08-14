@@ -107,6 +107,21 @@ common test-common
       QuickCheck
   ghc-options: -Wall
 
+-- TM20260813 begin SKAL FJERNES
+common solutions-common
+  hs-source-dirs: solutions
+  build-depends:
+      base,
+      hmatrix,
+      hqp:core
+  ghc-options: -Wall
+
+executable QubitsSolution
+  import: solutions-common
+  main-is: week1/QubitsSolution.hs
+
+-- TM20260813 end
+
 executable NoCloning
   import: exe-common
   main-is: NoCloning.hs

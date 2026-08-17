@@ -38,8 +38,14 @@ problem sheet (Exercise 1, 2, 5).
 
 -- | Prepare |b1..bn> from |00..0> using X on exactly the qubits with
 -- b_k = 1. `bits` is e.g. [1,0,1] for |101>.
-prepareBasisState :: [Int] -> Op
+prepareBasisState :: [Int] -> QOp
 prepareBasisState bits = I -- TODO: build via `Tensor`, folding X/I according to `bits`
+buildTensor [] = error "Cannot fold an empty list of integers!"
+buildTensor bits = foldr1 Tensor (map chooseOp bits)
+  where
+    chooseOp n = if n `mod` 2 == 0 then I else X
+
+
 
 -- | A hand-built 2-qubit real-amplitude state-prep circuit:
 -- rotate qubit 1 by angle0, then apply a *different* R_Y rotation to

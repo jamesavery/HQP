@@ -88,14 +88,43 @@ $\ket1$ are orthogonal as vectors ($\braket01=0$) but that their Bloch
 vectors are $(0,0,1)$ and $(0,0,-1)$ --- i.e.\ antipodal, not orthogonal,
 points on the sphere. Do the same for $\ket+,\ket-$.
 
-\item \textbf{Decomposing a target unitary (harder).}
+\item \textbf{Decomposing a target unitary - by inspection.}
 The Hadamard gate is $H=\tfrac1{\sqrt2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}$.
 Find $\delta,\theta,\mathbf n$ such that
 $H = e^{-i\delta/2}e^{-i\frac\theta2\mathbf n\cdot\boldsymbol\sigma}$.
-(Hint: first find the axis $\mathbf n$ from $H$'s eigenvectors, then use
-$\mathrm{Tr}(H) = 2\cos(\theta/2)e^{-i\delta/2}$ to pin down $\theta$ and
-$\delta$.)
+(Hint: Use Exercise 4b and compare the matrices directly.)
+
+\item \textbf{Decomposing a target unitary - eigenvalue method.}
+Here is another more geometric way of realizing the decomposition of a unitary matrix.
+\begin{enumerate}[label=(\alph*)]
+\item Using the results of exercise 4a, conclude that the eigenvalues of
+$\mathbf n\cdot\boldsymbol{\sigma}$ must belong to the set $\{+1,-1\}$. 
+\item What is $Tr(\mathbf n\cdot\boldsymbol{\sigma})$? Why does that imply, that both values $\pm 1$ are attained as eigenvalues?
+\item Let $|n+\rangle$ and $|n-\rangle$ denote eigenvectors of
+$\mathbf n\cdot\boldsymbol{\sigma}$ with eigenvalues $+1$ and $-1$. Show that $e^{-i\frac{\theta}{2}\mathbf n\cdot\boldsymbol{\sigma}}$ has the same eigenvectors. Find the eigenvalues.
+
+\item Recall from exercise 5, that the pure qubit state $|n+\rangle$ is represented by the unit Bloch vector
+\[
+\mathbf r_+
+=
+\bigl(
+\langle n+ |\sigma_x|n+\rangle,
+\langle n+|\sigma_y|n+\rangle,
+\langle n+|\sigma_z|n+\rangle
+\bigr).
+\]
+Show that $\mathbf r_+ = \mathbf n$.
+
+\item Use the eigenvalues of $e^{-i\delta/2}e^{-i\frac\theta2\mathbf n\cdot\boldsymbol\sigma}$ to find the remaining parameters $\delta$ and $\theta$.
+
+\item Try this out for the Hadamard  $H = e^{-i\delta/2}e^{-i\frac\theta2\mathbf n\cdot\boldsymbol\sigma}$
 
 \end{enumerate}
+
+\end{enumerate}
+
+
+
+
 
 \end{document}

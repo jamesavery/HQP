@@ -38,14 +38,14 @@ problem sheet (Exercise 1, 2, 5).
 
 -- | Prepare |b1..bn> from |00..0> using X on exactly the qubits with
 -- b_k = 1. `bits` is e.g. [1,0,1] for |101>.
-prepareBasisState :: [Int] -> Op
+prepareBasisState :: [Int] -> QOp
 prepareBasisState bits = I -- TODO: build via `Tensor`, folding X/I according to `bits`
 
 -- | A hand-built 2-qubit real-amplitude state-prep circuit:
 -- rotate qubit 1 by angle0, then apply a *different* R_Y rotation to
 -- qubit 2 depending on qubit 1's value (a "uniformly controlled
 -- rotation", the building block from paper Exercise 2).
-controlledRotationPrep2 :: Double -> Double -> Double -> Op
+controlledRotationPrep2 :: Double -> Double -> Double -> QOp
 controlledRotationPrep2 angle0 angle1if0 angle1if1 =
     Tensor (R Y angle0) I  -- TODO: this only handles the qubit-1 rotation.
     -- You still need to apply R Y angle1if0 to qubit 2 when qubit 1 = 0,
@@ -55,7 +55,7 @@ controlledRotationPrep2 angle0 angle1if0 angle1if1 =
     -- Compose this with the qubit-1 rotation above.
 
 -- | Count "elementary" gates in an Op circuit description.
-gateCount :: Op -> Int
+gateCount :: QOp -> Int
 gateCount I           = 0  -- identity doesn't really cost anything
 gateCount op          = 1  -- TODO: this is wrong for everything except
                             -- single-qubit leaves! Pattern-match on X, Y,

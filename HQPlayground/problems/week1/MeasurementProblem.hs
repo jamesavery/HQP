@@ -88,6 +88,4 @@ main = do
               in putStrLn ("p = " ++ show p ++ " -> P(0) = " ++ show (prob p0 psiP)))
           [0.0, 0.25, 0.5, 0.75, 1.0]
 
-    -- TODO (stretch): find theta such that
-    -- apply (evalOp (R Y theta)) (ket [0]) equals biasedCoin p (up to
-    -- phase) for a given p, using ideas from the Pauli/Bloch exercise.
+   

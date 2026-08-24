@@ -7,12 +7,12 @@ import HQP.PrettyPrint
 {-| Exercise: Quantum Programs.
 
 This exercise accompanies the "Quantum Programs" problem sheet
-(Exercise 1, 2, 3, 4). It builds directly on the `Op` grammar from the
+(Exercise 1, 2, 3, 4). It builds directly on the `QOp` grammar from the
 lecture:
 
-  data Op = I | X | SX | Y | Z | H | R Op RealT
-          | C Op | SWAP
-          | Tensor Op Op | DirectSum Op Op | Compose Op Op
+  data QOp = I | X | SX | Y | Z | H | R QOp RealT
+          | C QOp | SWAP
+          | Tensor QOp QOp | DirectSum QOp QOp | Compose QOp QOp
 
 A "quantum program" (a sequence of unitary Steps and Measurements) is
 just represented directly as a Haskell `do` block that chains `apply`
@@ -21,7 +21,7 @@ example you were given. There is no need for a separate Program type;
 running `main` *is* running the program.
 
 1. Complete `bellProgram`, which runs a 2-step "program" (H on qubit 0,
-   then CNOT) starting from |00>, using `Compose` to build a single Op
+   then CNOT) starting from |00>, using `Compose` to build a single QOp
    for the whole 2-qubit circuit before calling `evalOp`/`apply` once.
 
 2. Complete `runWithMidCircuitMeasurement`, a 3-step "program": prepare
@@ -42,7 +42,7 @@ bellProgram :: StateT
 bellProgram =
     let psi0    = ket [0, 0]
         circuit = Compose (Tensor H I) (C X)   -- TODO: check the argument order/semantics of Compose
-        op      = evalOp circuit
+        QOp      = evalOp circuit
     in psi0 -- TODO: actually apply `op` to `psi0`
 
 runWithMidCircuitMeasurement :: IO ()
@@ -56,16 +56,16 @@ runWithMidCircuitMeasurement = do
     -- TODO: then measure qubit 1 of that result and print "Step 3: ..."
     return ()
 
-directSumCNOT :: Op
+directSumCNOT :: QOp
 directSumCNOT = C X -- TODO: replace with `DirectSum I X`
 
-myUnitary :: Double -> Op
+myUnitary :: Double -> QOp
 myUnitary theta = H -- TODO: replace with `Compose H (R Z theta)` (or similar) so it's a genuine 1-qubit unitary
 
 
 main :: IO ()
 main = do
-    putStrLn "-- Exercise 1: Bell state as a single composed Op --"
+    putStrLn "-- Exercise 1: Bell state as a single composed QOp --"
     putStrLn $ "bellProgram = " ++ showState bellProgram
 
     putStrLn "\n-- Exercise 3: program with mid-circuit measurement --"

@@ -7,7 +7,7 @@ import HQP.PrettyPrint
 {-| Exercise: Quantum Programs.
 
 This exercise accompanies the "Quantum Programs" problem sheet
-(Exercise 1, 2, 3, 4). It builds directly on the `Op` grammar from the
+(Exercise 1, 2, 3, 4). It builds directly on the `QOp` grammar from the
 lecture:
 
   data Op = I | X | SX | Y | Z | H | R Op RealT
@@ -41,26 +41,35 @@ running `main` *is* running the program.
 bellProgram :: StateT
 bellProgram =
     let psi0    = ket [0, 0]
-        circuit = Compose (Tensor H I) (C X)   -- TODO: check the argument order/semantics of Compose
-        op      = evalOp circuit
-    in psi0 -- TODO: actually apply `op` to `psi0`
+        circuit =  (C X) ∘(H ⊗ I) -- Compose (Tensor H I) (C X)   -- TODO: check the argument order/semantics of Compose
+        qop      = evalOp circuit
+    in apply qop psi0 -- TODO: actually apply `op` to `psi0`
 
+
+-- TM: HER SKAL MAN MÅSKE LAVE EN PROBABILISTISK MÅLING I STEDET FOR !!!!
+-- Se YesTeleportation for et eksempel !!!
 runWithMidCircuitMeasurement :: IO ()
 runWithMidCircuitMeasurement = do
     let bell = bellProgram
         mP   = measureProjection
         p00  = mP 2 0 0
         p01  = mP 2 0 1
+        -- TODO: apply p00 to `bell`, normalize, print as "Step 2 (measure qubit 0 -> 0): ..."
+        bellFirstMeasure = apply p00 bell
+        bellAfter1 = ( 1 / sqrt (inner bellFirstMeasure bellFirstMeasure)) .* bellFirstMeasure
+        -- TODO: then measure qubit 1 of that result and print "Step 3: ..."
+        bellSecondMeasure = apply p01 bell
+        bellAfter2 = ( 1 / sqrt (inner bellSecondMeasure bellSecondMeasure)) .* bellSecondMeasure
     putStrLn $ "Step 1 (after Bell prep): " ++ showState bell
-    -- TODO: apply p00 to `bell`, normalize, print as "Step 2 (measure qubit 0 -> 0): ..."
-    -- TODO: then measure qubit 1 of that result and print "Step 3: ..."
+    putStrLn $ "Step 2 (measure qubit 0 -> |0>): " ++ showState bellAfter1
+    putStrLn $ "Step 2 (measure qubit 0 -> |1>): " ++ showState bellAfter2
     return ()
 
-directSumCNOT :: Op
-directSumCNOT = C X -- TODO: replace with `DirectSum I X`
+directSumCNOT :: QOp
+directSumCNOT = I ⊕ X -- TODO: replace with `DirectSum I X`
 
-myUnitary :: Double -> Op
-myUnitary theta = H -- TODO: replace with `Compose H (R Z theta)` (or similar) so it's a genuine 1-qubit unitary
+myUnitary :: Double -> QOp
+myUnitary theta = H ∘ R Z (toRational(theta / pi))  -- TODO: replace with `Compose H (R Z theta)` (or similar) so it's a genuine 1-qubit unitary
 
 
 main :: IO ()

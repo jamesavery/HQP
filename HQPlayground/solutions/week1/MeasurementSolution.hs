@@ -3,8 +3,12 @@ module Main where
 import HQP.QOp
 import HQP.QOp.MPSSemantics
 import HQP.PrettyPrint
+import GHC.Real (Fractional(fromRational))
 
 {-| Exercise: Measurement.
+
+--         TODO TM : Brug probilistiske målinger !!! 
+
 
 This exercise accompanies the "Measurement" problem sheet
 (Exercise 1, 2, 4).
@@ -39,16 +43,28 @@ This exercise accompanies the "Measurement" problem sheet
 
 -- | Probability of a measurement outcome, given the corresponding
 -- projector and a NORMALIZED state.
-prob :: Op -> StateT -> ComplexT
-prob projOp psi = 0 -- TODO: use `apply`, `evalOp` if needed, and `inner`
+prob :: OpT -> StateT -> ComplexT
+prob projOpT psi = 
+   let 
+      phi = apply projOpT psi
+   in 
+      inner psi phi 
 
 -- | The actual, renormalized state of the system after a projective
 -- measurement (as opposed to the unnormalized "branch amplitude").
-postMeasurementState :: Op -> StateT -> StateT
-postMeasurementState projOp psi = psi -- TODO: apply the projector, then `normalize`
+postMeasurementState :: OpT -> StateT -> StateT
+postMeasurementState projOpT psi = 
+   let 
+      postState = apply projOpT psi -- Apply the projector ... 
+   in
+      ( 1 / sqrt (inner postState postState)) .* postState -- then `normalize`
 
 biasedCoin :: Double -> StateT
-biasedCoin p = ket [0] -- TODO: build sqrt(p)|0> + sqrt(1-p)|1>
+biasedCoin p = 
+   let
+      rotAngle = 2 * acos (sqrt p) * (1 / pi) 
+   in
+      apply (evalOp (R Y (toRational rotAngle))) (ket [0]) -- TODO: build sqrt(p)|0> + sqrt(1-p)|1>
 
 
 main :: IO ()
@@ -80,14 +96,11 @@ main = do
         phi1 = postMeasurementState q01 phi
     putStrLn $ "post-measurement state (outcome 0) = " ++ showState phi0
     putStrLn $ "post-measurement state (outcome 1) = " ++ showState phi1
-    putStrLn "TODO: is qubit 1 left in a classical bit value or a superposition, in each branch?"
+    putStrLn "Qubit 1 left as a superposition, in each branch"
 
     putStrLn "\n-- Exercise 5: biased coin --"
     mapM_ (\p ->
               let psiP = biasedCoin p
-              in putStrLn ("p = " ++ show p ++ " -> P(0) = " ++ show (prob p0 psiP)))
+              in putStrLn ("p = " ++ show p ++ " -> P(0) = " ++ show (prob p0 psiP) ++ " -> P(1) = " ++ show (prob p1 psiP)   ))
           [0.0, 0.25, 0.5, 0.75, 1.0]
 
-    -- TODO (stretch): find theta such that
-    -- apply (evalOp (R Y theta)) (ket [0]) equals biasedCoin p (up to
-    -- phase) for a given p, using ideas from the Pauli/Bloch exercise.

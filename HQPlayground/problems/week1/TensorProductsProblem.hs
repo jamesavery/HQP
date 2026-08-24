@@ -9,17 +9,17 @@ import HQP.PrettyPrint
 This exercise accompanies the "Tensor Products" problem sheet
 (Exercise 1, 2, 4, 5).
 
-1. Complete `productState`, building |psi1> (x) |psi2> using (⊗).
+1. Complete `productState`, building |psi1> ⊗ |psi2> using (⊗).
 
 2. Complete `bellPhiPlus`, preparing the Bell state
-   1/sqrt(2) (|00> + |11>) starting from |00>, using H and C X exactly
-   as in the No-Cloning example (evalOp, apply).
+   1/sqrt(2) (|00> + |11>) starting from |00>, using H and C X  and  the
+   evalOp as well as the apply command.
 
 3. Complete `applyOnQubit0` / `applyOnQubit1`, which apply a 1-qubit Op
    to only the first / second qubit of a 2-qubit state, using the
    `Tensor` Op constructor (paper Exercise 4a).
 
-4. In `main`, verify that (X (x) I) and (I (x) X) act differently on the
+4. In `main`, verify that (X ⊗ I) and (I ⊗ X) act differently on the
    Bell state, and check whether the results are still entangled
    (informally: is the state still equal, up to relabelling, to a Bell
    state? use `showState`/`printS` to inspect).
@@ -28,7 +28,7 @@ This exercise accompanies the "Tensor Products" problem sheet
    state in the computational basis, and separately in the {|+>,|->}
    basis (apply H first). Compare the conditional post-measurement state
    of qubit 1 in each case with what you would see for the *product*
-   state |+> (x) |0> treated the same way. This is a hands-on version of
+   state |+> ⊗ |0> treated the same way. This is a hands-on version of
    paper Exercise 2 (Bell states are not product states).
 -}
 
@@ -42,10 +42,10 @@ bellPhiPlus =
         cx   = evalOp (C X)
     in psi0 -- TODO: replace with H on qubit 0, then CX
 
-applyOnQubit0 :: Op -> StateT -> StateT
+applyOnQubit0 :: QOp -> StateT -> StateT
 applyOnQubit0 op psi = psi -- TODO: use `Tensor op I`, evalOp, apply
 
-applyOnQubit1 :: Op -> StateT -> StateT
+applyOnQubit1 :: QOp -> StateT -> StateT
 applyOnQubit1 op psi = psi -- TODO: use `Tensor I op`, evalOp, apply
 
 
@@ -54,7 +54,7 @@ main = do
     putStrLn "-- Exercise 1: simple product states --"
     let plus  = apply (evalOp H) (ket [0])
         pp    = productState plus plus
-    putStrLn $ "|+> (x) |+> = " ++ showState pp
+    putStrLn $ "|+> ⊗ |+> = " ++ showState pp
 
     putStrLn "\n-- Exercise 2+5: Bell state vs. product state --"
     let bell = bellPhiPlus
@@ -81,11 +81,11 @@ main = do
     putStrLn $ "  outcome 1 -> (unnormalized) " ++ showState prod1
     putStrLn "  TODO: compare to the entangled case above -- what's the key difference?"
 
-    putStrLn "\n-- Exercise 4: (X (x) I) vs (I (x) X) on the Bell state --"
+    putStrLn "\n-- Exercise 4: (X ⊗ I) vs (I ⊗ X) on the Bell state --"
     let bellX0 = applyOnQubit0 X bell
         bellX1 = applyOnQubit1 X bell
-    putStrLn $ "(X (x) I)|Phi+> = " ++ showState bellX0
-    putStrLn $ "(I (x) X)|Phi+> = " ++ showState bellX1
+    putStrLn $ "(X ⊗ I)|Phi+> = " ++ showState bellX0
+    putStrLn $ "(I ⊗ X)|Phi+> = " ++ showState bellX1
     putStrLn "TODO: are these the same state? Are they still entangled?"
 
     -- TODO (stretch, paper Exercise 6): build a 3-qubit GHZ state

@@ -3,6 +3,7 @@
 \usepackage{physics}
 \usepackage[margin=1in]{geometry}
 \usepackage{enumitem}
+\usepackage{qcircuit}
 
 \title{ATPL 2025 --- Exercises: State Preparation and the Input Problem}
 \author{Lecture 1: Why do we need hybrid programming models?}
@@ -19,7 +20,14 @@ Bullock \& Markov (2006).
 
 \begin{enumerate}[label=\textbf{Exercise \arabic*.}, leftmargin=2.2cm]
 
-\item \textbf{Basis-state preparation is cheap.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  Basis-state preparation is cheap
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\item \textbf{Basis-state preparation is cheap.}\\
 Given a target computational basis state $\ket{b_1 b_2 \cdots b_n}$ with
 $b_k \in \{0,1\}$, describe the circuit that prepares it from
 $\ket{0\cdots0}$ using only $X$ gates.
@@ -28,28 +36,240 @@ $\ket{0\cdots0}$ using only $X$ gates.
 \item What is the circuit \emph{depth} (can the $X$ gates all be applied
 in parallel, or must they be sequential)? Contrast this with the general
 amplitude state-preparation problem discussed below.
+\item By the way ... how do you get the $\ket{0\cdots0}$ to begin with?
 \end{enumerate}
+(See the accompanying code exercise ... you'll do a simple example)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  General state preparation by rotations
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\item \textbf{General state preparation by rotations.}
+
+Consider the circuit
+\[ \Qcircuit @C=1em @R=.8em { \lstick{|0\rangle} & \gate{R_Y(\alpha)} & \ctrlo{1} & \ctrl{1} & \qw \\ \lstick{|0\rangle} & \qw & \gate{R_Y(\beta_0)} & \gate{R_Y(\beta_1)} & \qw } \]
+
+where the second gate is a uniformly controlled rotation:
+if the control qubit is in state $|0\rangle$, apply
+$R_Y(\beta_0)$; if the control qubit is in state $|1\rangle$,
+apply $R_Y(\beta_1)$.
+
+\begin{enumerate}[label=(\alph*)]
+
+\item Show that the final state is
+
+\[
+\begin{aligned}
+|\psi\rangle
+=&
+\cos\frac{\alpha}{2}\cos\frac{\beta_0}{2}\,|00\rangle
++
+\cos\frac{\alpha}{2}\sin\frac{\beta_0}{2}\,|01\rangle \\
+&
++\sin\frac{\alpha}{2}\cos\frac{\beta_1}{2}\,|10\rangle
++
+\sin\frac{\alpha}{2}\sin\frac{\beta_1}{2}\,|11\rangle .
+\end{aligned}
+\]
+
+\item Consider a general real two-qubit state
+
+\[
+|\psi\rangle
+=
+a_{00}|00\rangle
++a_{01}|01\rangle
++a_{10}|10\rangle
++a_{11}|11\rangle ,
+\]
+
+with
+
+\[
+a_{00}^2+a_{01}^2+a_{10}^2+a_{11}^2=1.
+\]
+
+Show that it can be written in the form
+
+\[
+|\psi\rangle
+=
+r_0 |0\rangle |\psi_0\rangle
++
+r_1 |1\rangle |\psi_1\rangle ,
+\]
+
+where $|\psi_0\rangle$ and $|\psi_1\rangle$ are normalized
+one-qubit states
+
+\[
+|\psi_0\rangle
+=
+\frac{a_{00}|0\rangle+a_{01}|1\rangle}{r_0},
+\qquad
+|\psi_1\rangle
+=
+\frac{a_{10}|0\rangle+a_{11}|1\rangle}{r_1}.
+\]
+
+and
+
+\[
+r_0=\sqrt{a_{00}^2+a_{01}^2},
+\qquad
+r_1=\sqrt{a_{10}^2+a_{11}^2}.
+\]
+
+\item The first rotation $R_Y(\alpha)$ should create the state
+
+\[
+r_0|0\rangle+r_1|1\rangle .
+\]
+
+Since
+
+\[
+R_Y(\alpha)|0\rangle
+=
+\cos\frac{\alpha}{2}|0\rangle
++
+\sin\frac{\alpha}{2}|1\rangle ,
+\]
+
+it follows that
+
+\[
+\cos\frac{\alpha}{2}=r_0,
+\qquad
+\sin\frac{\alpha}{2}=r_1.
+\]
+
+\begin{enumerate}[label=(\roman*)]
+
+\item Find an expression for $\alpha$.
+
+\item Determine formulas for $\beta_0$ and $\beta_1$.
+
+\end{enumerate}
+
+\item Use the above method to determine
+$\alpha$, $\beta_0$, and $\beta_1$ for
+
+\[
+|\phi\rangle
+=
+\frac12|00\rangle
++\frac12|01\rangle
++\frac1{\sqrt8}|10\rangle
++\sqrt{\frac38}|11\rangle .
+\]
+
+\item Explain how this construction suggests a recursive procedure
+for preparing an arbitrary real $n$-qubit state.
+
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Counting the cost of a controlled-rotation state-prep tree
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \item \textbf{Counting the cost of a controlled-rotation state-prep
 tree.}
-The standard recursive construction for an arbitrary real-amplitude
-$n$-qubit state uses one ``uniformly controlled'' $R_Y$ layer (a
-rotation on qubit $n$, controlled on all $2^{n-1}$ possible values of
-qubits $1,\dots,n-1$) to peel off one qubit at a time, then recurses on
-the remaining $(n-1)$-qubit state.
+
+A uniformly controlled $R_Y$ rotation on one target qubit with
+$k$ control qubits associates a rotation angle
+
+\[
+\theta_x,
+\qquad
+x\in\{0,1\}^k,
+\]
+
+with each computational basis state of the control register.
+
+For example, when $k=2$, the gate is specified by four angles
+
+\[
+\theta_{00},\qquad
+\theta_{01},\qquad
+\theta_{10},\qquad
+\theta_{11}.
+\]
+
 \begin{enumerate}[label=(\alph*)]
-\item Write down the recurrence $T(n) = 2\,T(n-1) + c\cdot 2^{n-1}$ for
-the number of controlled-rotation gates, with $T(1)=O(1)$, justifying
-the two terms.
-\item Solve the recurrence (e.g.\ by unrolling it, or via a generating
-function / substitution $T(n)/2^n = T(n-1)/2^{n-1} + c/2$) to find
-$T(n)$ as an explicit function of $n$.
-\item Compare your answer to the $\mathcal O(4^n)$ figure quoted in the
-lecture. Is $\mathcal O(4^n)$ a tight bound for this construction, or a
-looser (but easier to state) bound? Where might a factor like $4^n$
-legitimately arise instead (hint: think about complex amplitudes, or
-about a generic $2^n\times2^n$ unitary rather than just a state).
+
+\item How many independent rotation angles are required for a
+uniformly controlled $R_Y$ gate with $k$ control qubits?
+
+\item Explain why a cost proportional to $2^k$ is plausible.
+
+\textit{Hint:} The gate contains $2^k$ independent continuous
+parameters.
+
+\item Assume that a uniformly controlled $R_Y$ gate with $k$
+controls can be implemented using at most
+
+\[
+c\,2^k
+\]
+
+elementary gates, where $c$ is a constant independent of $k$.
+
+Consider the recursive state-preparation procedure from the previous
+exercise: one uniformly controlled $R_Y$ layer is used to separate one
+qubit from an arbitrary real $n$-qubit state, after which the procedure
+recurses on the two resulting $(n-1)$-qubit branches.
+
+Let $T(n)$ denote the number of elementary gates required.
+
+Show that
+
+\[
+T(n)
+=
+2T(n-1)
++
+c\,2^{n-1},
+\qquad
+T(1)=O(1).
+\]
+
+Clearly identify the origin of each term.
+
+\item Divide the recurrence by $2^n$ and show that
+
+\[
+\frac{T(n)}{2^n}
+=
+\frac{T(n-1)}{2^{n-1}}
++
+\frac{c}{2}.
+\]
+
+Hence solve the recurrence and show that
+
+\[
+T(n)=\Theta(n\,2^n).
+\]
+
+\item Compare this result with the frequently quoted upper bound
+$O(4^n)$.
+
+Why is $O(4^n)$ not a tight bound for this state-preparation procedure?
+Where might a scaling proportional to $4^n$ arise naturally instead?
+
 \end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  Complex amplitudes
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \item \textbf{Complex amplitudes.}
 Repeat Exercise 2, but now allow \emph{complex} amplitudes $a_i \in
@@ -57,6 +277,12 @@ Repeat Exercise 2, but now allow \emph{complex} amplitudes $a_i \in
 magnitude rotation \emph{and} an $R_Z$ phase rotation per branch). Does
 the asymptotic growth rate (as a function of $n$) change from the
 real-amplitude case, or only the constant factor?
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  QRAM and the ``log-depth mirage''
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \item \textbf{QRAM and the ``log-depth mirage''.}
 A common claim is: ``QRAM lets you load $N$ data points in $\mathcal
@@ -83,6 +309,12 @@ genuine complexity advantage, and when is the "$\mathcal O(\log N)$"
 figure misleading about the \emph{total} cost of getting your data into
 the machine?
 \end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  Structured states are cheap
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \item \textbf{Structured states are cheap.}
 Give an example of an $n$-qubit state with (generically) all $2^n$

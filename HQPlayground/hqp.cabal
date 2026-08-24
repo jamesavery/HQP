@@ -107,7 +107,7 @@ common test-common
       QuickCheck
   ghc-options: -Wall
 
--- TM20260813 begin SKAL FJERNES
+-- TM20260813 begin solutions
 common solutions-common
   hs-source-dirs: solutions
   build-depends:
@@ -116,11 +116,36 @@ common solutions-common
       hqp:core
   ghc-options: -Wall
 
+-- Week 1
 executable QubitsSolution
   import: solutions-common
   main-is: week1/QubitsSolution.hs
 
--- TM20260813 end
+executable PauliBlochSolution
+  import: solutions-common
+  main-is: week1/PauliBlochSolution.hs
+
+executable TensorProductsSolution
+  import: solutions-common
+  main-is: week1/TensorProductsSolution.hs
+
+executable MeasurementSolution
+  import: solutions-common
+  main-is: week1/MeasurementSolution.hs
+
+executable QuantumProgramsSolution
+  import: solutions-common
+  main-is: week1/QuantumProgramsSolution.hs
+
+-- Week 2
+executable StatePreparationSolution
+  import: solutions-common
+  main-is: week2/StatePreparationSolution.hs
+
+
+-- Week 3
+
+-- TM20260813 end solutions
 
 executable NoCloning
   import: exe-common

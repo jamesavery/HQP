@@ -6,8 +6,30 @@ import HQP.PrettyPrint
 
 import Data.Complex
 
-{-| Solutions for the exercise: Single qubits -- normalization, change of basis, and global
+{-| SOLUTIONS: Single qubits -- normalization, change of basis, and global
 phase invariance.
+
+This exercise accompanies the "Qubits" problem sheet (Exercise 1, 2, 4).
+Consult the document "QPP - What it does" if you get lost in code space :-)
+
+1. Complete `normSquared`, which should compute <psi|psi> for a 1-qubit
+   state. Use it to check which of the states in `main` are normalized.
+
+2. Complete `basisChange`, which takes a 1-qubit state |psi> and returns
+   its coordinates (b0, b1) in the {|+>, |-> } basis, i.e. such that
+   |psi> = b0|+> + b1|-> . Build |+>, |-> using the Hadamard operator H
+   applied to |0>, |1> (do not hard-code them by hand), then use `inner`
+   to project.
+
+3. Complete `applyGlobalPhase`, which multiplies a state by e^{i*alpha}
+   for a real angle alpha, using (.*).
+
+4. In `main`, use `applyGlobalPhase` to build psi' = e^{i*alpha} psi for
+   some alpha of your choosing, and show numerically (via
+   `measureProjection` and `inner`) that psi and psi' give identical
+   measurement probabilities in the computational basis. This is the
+   computational counterpart of paper Exercise 4 (global phase is
+   unobservable).
 -}
 
 -- | a0|0> + a1|1>
@@ -22,15 +44,15 @@ normSquared psi = inner psi psi -- returns the vector squared. SOLVED
 basisChange :: StateT -> (ComplexT, ComplexT)
 basisChange psi =
     let plusOp  = evalOp H
-        plus    = apply plusOp (ket [0])   -- TODO: is this really |+>? check!
-        minus   = apply plusOp (ket [1])   -- TODO: replace with the real |->
-        b0      = inner plus psi           -- TODO: project psi onto |+>
-        b1      = inner minus psi          -- TODO: project psi onto |->
+        plus    = apply plusOp (ket [0])   -- This is really |+>
+        minus   = apply plusOp (ket [1])   -- replaced with the real |->
+        b0      = inner plus psi           -- projected psi onto |+>
+        b1      = inner minus psi          -- projected psi onto |->
     in (b0, b1)
 
 -- | Multiply a state by an overall phase e^{i*alpha}.
 applyGlobalPhase :: Double -> StateT -> StateT
-applyGlobalPhase alpha psi = (exp (0 :+ alpha)) .* psi -- TODO: fill in, using (.*) and a complex phase factor
+applyGlobalPhase alpha psi = (exp (0 :+ alpha)) .* psi -- Filled in, using (.*) and a complex phase factor
 
 
 main :: IO ()
@@ -48,7 +70,7 @@ main = do
     putStrLn "\n-- Exercise 2: change of basis --"
     let (b0, b1) = basisChange psiB
     putStrLn $ "psiB in {|+>,|->} basis: b0 = " ++ show b0 ++ ", b1 = " ++ show b1
-    putStrLn $ "Check: |b0|^2 + |b1|^2 should equal 1 -- fill in a check here"
+    --putStrLn $ "Check: |b0|^2 + |b1|^2 should equal 1 -- filled in a check here"
     let lenB = conjugate b0 * b0 + conjugate b1 * b1
     putStrLn $ "Check: |b0|^2 + |b1|^2 = " ++ show lenB
 
@@ -69,7 +91,8 @@ main = do
 
     putStrLn $ "P(0) for psiB  = " ++ show prob0  ++ "   P(0) for psiB' = " ++ show prob0'
     putStrLn $ "P(1) for psiB  = " ++ show prob1  ++ "   P(1) for psiB' = " ++ show prob1'
-    putStrLn "These should match exactly, even though psiB /= psiB' as vectors."
+    putStrLn "These should match exactly, even though psiB /= psiB' as vectors. ... And they do"
 
     -- TODO (open-ended): repeat the phase-invariance check measuring in
+
     -- the {|+>,|->} basis instead, using your `basisChange` function.

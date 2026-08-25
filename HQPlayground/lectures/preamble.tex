@@ -1,0 +1,32 @@
+% Standard Packages
+\usepackage{graphicx}    % For including images
+\usepackage{amsmath}     % For math symbols
+\usepackage{hyperref}    % For clickable links
+\usepackage{skull}       % For custom colors
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{pdfcomment}
+\usepackage[dvipsnames,svgnames]{xcolor}
+\usetikzlibrary{calc}
+
+% Customize Color
+\definecolor{darkgreen}{RGB}{1,102,50}
+\definecolor{myblue}{RGB}{0, 51, 102}
+\definecolor{mygray}{RGB}{105, 105, 105}
+
+\setbeamercolor{title}{fg=myblue}
+\setbeamercolor{frametitle}{bg=myblue, fg=white}
+\setbeamercolor{structure}{fg=myblue}
+
+\AtBeginSection[]{
+    \begin{frame}
+        \frametitle{Table of Contents}
+        \tableofcontents[currentsection] % Highlights the current section
+    \end{frame}
+}
+
+\AtBeginSubsection[]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection,currentsubsection]
+  \end{frame}
+}

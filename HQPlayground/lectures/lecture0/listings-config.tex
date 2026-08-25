@@ -1,0 +1,37 @@
+
+% Colors
+\definecolor{codebg}{rgb}{0.98,0.98,0.98}
+\definecolor{codekw}{rgb}{0.10,0.10,0.60}
+\definecolor{codecmt}{rgb}{0.00,0.45,0.00}
+\definecolor{codestr}{rgb}{0.55,0.00,0.00}
+
+\lstset{
+  language=Haskell,
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecmt}\itshape,
+  stringstyle=\color{codestr},
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.2pt,
+  tabsize=2,
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+}
+
+% optional: nicer Unicode/math-like symbols in code
+\lstset{
+  literate=
+    {→}{{$\to$}}1
+    {←}{{$\leftarrow$}}1
+    {⇒}{{$\Rightarrow$}}1
+    {∀}{{$\forall$}}1
+    {∃}{{$\exists$}}1
+}

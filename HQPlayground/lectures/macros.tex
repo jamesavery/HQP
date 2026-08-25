@@ -1,0 +1,84 @@
+\newcommand{\labeledmatrixTwo}[2]{
+    \begin{array}{c@{}c@{}c}
+        & \textcolor{gray}{\begin{array}{cc}
+            0 & 1
+        \end{array}} \\[5pt]
+        \textcolor{gray}{\begin{array}{c}
+            0 \\ 1
+        \end{array}} &
+        \left[ \begin{array}{cc}
+            #1 \\ #2 \\
+        \end{array} \right]
+    \end{array}
+}
+
+% Define a macro for the labeled 4x4 matrix with gray labels, with compact content columns
+\newcommand{\labeledmatrixFour}[4]{
+    \begin{array}{c@{}c}
+        & \textcolor{gray}{\begin{array}{cccc}
+            00 & 01 & 10 & 11
+        \end{array}} \\[5pt]
+        \textcolor{gray}{\begin{array}{c}
+            00 \\ 01 \\ 10 \\ 11
+        \end{array}} &
+        \left[ \begin{array}{@{\hspace{12pt}}c@{\hspace{12pt}}c@{\hspace{12pt}}c@{\hspace{12pt}}c}
+            #1 \\ #2 \\ #3 \\ #4 \\
+        \end{array} \right]
+    \end{array}
+}
+
+% Define a macro for the labeled 8x8 matrix with gray labels, with compact content columns
+\newcommand{\labeledmatrixEight}[8]{
+    \begin{array}{c@{}c}
+        & \textcolor{gray}{\begin{array}{cccccccc}
+            000 & 001 & 010 & 011 & 100 & 101 & 110 & 111
+        \end{array}} \\[5pt]
+        \textcolor{gray}{\begin{array}{c}
+            000 \\ 001 \\ 010 \\ 011 \\ 100 \\ 101 \\ 110 \\ 111
+        \end{array}} &
+        \left[ \begin{array}{@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c@{\hspace{15pt}}c}
+            #1 \\ #2 \\ #3 \\ #4 \\ #5 \\ #6 \\ #7 \\ #8 \\
+        \end{array} \right]
+    \end{array}
+}
+
+\newcommand{\ket}[1]{\ensuremath{\left| #1 \right\rangle}}
+\newcommand{\bra}[1]{\ensuremath{\left\langle #1 \right|}}
+\newcommand{\sqrtf}[2]{\sqrt{\frac{#1}{#2}}}
+\newcommand{\norm}[1]{\left\| #1 \right\|}
+\newcommand{\braket}[2]{\left\langle #1 \middle| #2 \right\rangle}
+\newcommand{\ketbra}[2]{\left| #1 \middle\rangle \middle\langle #2 \right|}
+\newcommand{\innerw}[3]{\left\langle #1 \middle| #2 \middle| #3 \right\rangle}
+\newcommand{\inner}[2]{\left\langle #1 \middle| #2 \right\rangle}
+\newcommand{\setof}[2]{\left\{ #1 \middle| #2 \right\}}
+\newcommand{\bigO}[1]{\mathcal{O}\left( #1 \right)}
+\newcommand{\Pauli}{\mathcal{P}}
+\newcommand{\optype}[1]{\mathsf{#1}}
+\newcommand{\mattype}[1]{\mathbf{#1}}
+\newcommand{\vecttype}[1]{\mathbf{#1}}
+\newcommand{\XX}{\mattype{X}}
+\newcommand{\YY}{\mattype{Y}}
+\newcommand{\ZZ}{\mattype{Z}}  
+\newcommand{\II}{\mattype{I}}
+\newcommand{\UU}{\mattype{U}}
+\newcommand{\RR}{\mattype{R}}
+\newcommand{\nn}{\vecttype{n}}
+\newcommand{\xx}{\vecttype{x}}
+\newcommand{\zz}{\vecttype{z}}
+\newcommand{\aas}{\vecttype{a}}
+\newcommand{\sss}{\vecttype{s}}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Stabgroup}[1]{\mathcal{S}\left( #1 \right)}
+\newcommand{\Stab}[1]{\Stabgroup{#1}}
+\newcommand{\Nstab}[1]{\mathcal{N}\left( #1 \right)}
+\newcommand{\mat}[1]{\begin{bmatrix}#1\end{bmatrix}}
+\newcommand{\vect}[1]{\left[\begin{array}{r} #1 \end{array}\right]}
+\newcommand{\boldon}[2]{\alt<#1>{\bm{#2}}{#2}}
+
+
+\newcommand{\measure}[2]{\textsf{measure}_{#1, #2}\,}
+\newcommand{\hilbert}{\mathfrak{h}}
+\newcommand{\Hilbert}{\mathcal{H}}

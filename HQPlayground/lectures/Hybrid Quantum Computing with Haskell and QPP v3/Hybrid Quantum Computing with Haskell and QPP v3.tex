@@ -1,0 +1,469 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+
+\title{Hybrid Quantum Computing with Haskell and QPP V3}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\part{Quantum Programming in QPP}
+
+\section{Introduction}
+
+\subsection{The Goals of the Course}
+
+\subsection{Quantum Computing as Representation}
+
+\subsection{The Quantum Programming Playground}
+
+\subsection{Running QPP}
+
+\subsection{States, Operators, and Programs}
+
+
+\section{Enough Haskell to Begin}
+
+\subsection{Expressions, Types, and Functions}
+
+\subsection{Complex Numbers}
+
+\subsection{Lists and Comprehensions}
+
+\subsection{Partial Application}
+
+\subsection{Algebraic Data Types}
+
+\subsection{Pattern Matching}
+
+\subsection{Structural Recursion}
+
+\subsection{Exercises}
+
+
+\section{States and Amplitudes}
+
+\subsection{A Qubit is a Vector}
+
+\subsection{Pure States and Normalization}
+
+\subsection{The Born Rule}
+
+\subsection{Inner Products}
+
+\subsection{Change of Basis}
+
+\subsection{Global and Relative Phase}
+
+\subsection{Exercises}
+
+
+\section{Operators}
+
+\subsection{Linear Operators}
+
+\subsection{Unitary Evolution}
+
+\subsection{The Pauli Operators}
+
+\subsection{The Hadamard Operator}
+
+\subsection{Rotation Operators}
+
+\subsection{Tensor Products}
+
+\subsection{Controlled Operators}
+
+\subsection{Adjoints}
+
+\subsection{Exercises}
+
+
+\section{Operators as Syntax Trees}
+
+\subsection{The \texttt{QOp} Datatype}
+
+\subsection{Constructors as Syntax}
+
+\subsection{Syntax versus Semantics}
+
+\subsection{The Matrix Backend}
+
+\subsection{Operator Composition}
+
+\subsection{Tensor Composition}
+
+\subsection{Structural Recursion on Operator Syntax}
+
+\subsection{Analysis of Operator Expressions}
+
+\subsection{Exercises}
+
+
+\section{Many-Qubit Systems}
+
+\subsection{Tensor-Product Spaces}
+
+\subsection{Product States}
+
+\subsection{Entangled States}
+
+\subsection{Bell States}
+
+\subsection{Bell-State Preparation}
+
+\subsection{Bell-Basis Measurement}
+
+\subsection{Exercises}
+
+
+\section{Programs with Measurement}
+
+\subsection{The \texttt{Program} Datatype}
+
+\subsection{Unitary and Non-Unitary Operations}
+
+\subsection{Measurement as an Effect}
+
+\subsection{Randomness and Random Streams}
+
+\subsection{State Collapse}
+
+\subsection{Classical Control}
+
+\subsection{Adaptive Quantum Programs}
+
+\subsection{Sampling and Reproducibility}
+
+\subsection{Exercises}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\part{Hybrid Quantum--Classical Computation}
+
+\section{The Input Problem}
+
+\subsection{State Preparation}
+
+\subsection{Preparing Structured States}
+
+\subsection{Entangled-State Preparation}
+
+\subsection{Complexity of State Preparation}
+
+\subsection{Exercises}
+
+
+\section{The Output Problem}
+
+\subsection{Measurement as Information Extraction}
+
+\subsection{Amplitude Amplification}
+
+\subsection{Grover Search}
+
+\subsection{Output Complexity}
+
+\subsection{Exercises}
+
+
+\section{The Simulation Problem}
+
+\subsection{Why Simulation is Difficult}
+
+\subsection{Exponential State Spaces}
+
+\subsection{Restricted Quantum Computation}
+
+\subsection{The Clifford Group}
+
+\subsection{Clifford versus Non-Clifford Computation}
+
+\subsection{Exercises}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\part{Quantum Operators as Algebraic Objects}
+
+\section{The Pauli Algebra}
+
+\subsection{The Pauli Group}
+
+\subsection{Multiplication Rules}
+
+\subsection{Commutation and Anticommutation}
+
+\subsection{Multi-Qubit Pauli Operators}
+
+\subsection{Generating Sets}
+
+\subsection{Operator Bases}
+
+\subsection{Normal Forms}
+
+\subsection{Exercises}
+
+
+\section{Structural Transformations}
+
+\subsection{Traversing Operator Trees}
+
+\subsection{Analysis versus Transformation}
+
+\subsection{Simplification Rules}
+
+\subsection{Rewrite Systems}
+
+\subsection{Canonical Forms}
+
+\subsection{Validation and Consistency Checking}
+
+\subsection{Correctness of Rewrites}
+
+\subsection{Exercises}
+
+
+\section{Interpreters and Semantics}
+
+\subsection{Syntax and Interpretation}
+
+\subsection{Matrix Semantics}
+
+\subsection{State-Vector Semantics}
+
+\subsection{Symbolic Semantics}
+
+\subsection{Resource-Analysis Semantics}
+
+\subsection{Comparing Interpretations}
+
+\subsection{Exercises}
+
+
+\section{Why Representations Matter}
+
+\subsection{Representation-Dependent Complexity}
+
+\subsection{State Vectors versus Symbolic Forms}
+
+\subsection{Choosing a Representation}
+
+\subsection{Representation Trade-Offs}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\part{Alternative Quantum Representations}
+
+\section{The Stabilizer Formalism}
+
+\subsection{Stabilizer Groups}
+
+\subsection{Stabilizer States}
+
+\subsection{Generators}
+
+\subsection{The Gottesman--Knill Theorem}
+
+\subsection{Examples}
+
+\subsection{Exercises}
+
+
+\section{Tableau Representations}
+
+\subsection{From Stabilizers to Tableaux}
+
+\subsection{Pauli Strings}
+
+\subsection{Tableau Data Structures}
+
+\subsection{Representing Stabilizer States}
+
+\subsection{Hadamard Updates}
+
+\subsection{Phase-Gate Updates}
+
+\subsection{CNOT Updates}
+
+\subsection{Measurement}
+
+\subsection{Examples}
+
+\subsection{Exercises}
+
+
+\section{Diagrammatic Representations}
+
+\subsection{Motivation}
+
+\subsection{Circuit Diagrams}
+
+\subsection{String Diagrams}
+
+\subsection{ZX Diagrams}
+
+\subsection{Z-Spiders}
+
+\subsection{X-Spiders}
+
+\subsection{Hadamard Nodes}
+
+\subsection{Diagram Semantics}
+
+\subsection{Examples}
+
+
+\section{Graph Rewriting}
+
+\subsection{Graphs as Syntax}
+
+\subsection{Rewrite Rules}
+
+\subsection{Spider Fusion}
+
+\subsection{Identity Removal}
+
+\subsection{Hadamard Simplifications}
+
+\subsection{Simplification Strategies}
+
+\subsection{Termination and Confluence}
+
+\subsection{Circuit Extraction}
+
+\subsection{Examples}
+
+
+\section{Tensor Representations}
+
+\subsection{Operators as Tensors}
+
+\subsection{Tensor Networks}
+
+\subsection{Contraction}
+
+\subsection{Complexity Considerations}
+
+\subsection{Simulation Strategies}
+
+\subsection{Examples}
+
+\subsection{Exercises}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\part{Projects and Research Directions}
+
+\section{Project Track: Symbolic Operator Algebra}
+
+\subsection{Operator Simplifiers}
+
+\subsection{Canonical Forms}
+
+\subsection{Commutation Analysis}
+
+\subsection{Verification Tools}
+
+
+\section{Project Track: Stabilizer Computation}
+
+\subsection{Stabilizer Simulators}
+
+\subsection{Tableau Simulators}
+
+\subsection{Clifford Evolution}
+
+\subsection{Measurement}
+
+\subsection{Error-Correction Applications}
+
+
+\section{Project Track: ZX Calculus}
+
+\subsection{ZX Graph Representations}
+
+\subsection{Rewrite Engines}
+
+\subsection{Simplification Strategies}
+
+\subsection{Circuit Extraction}
+
+
+\section{Project Track: Tensor Methods}
+
+\subsection{Tensor-Network Simulators}
+
+\subsection{Contraction Heuristics}
+
+\subsection{Backend Implementations}
+
+\subsection{Performance Comparisons}
+
+
+\section{Research Directions}
+
+\subsection{Quantum Compilation}
+
+\subsection{Quantum Error Correction}
+
+\subsection{Program Verification}
+
+\subsection{Equivalence Checking}
+
+\subsection{Diagrammatic Reasoning}
+
+\subsection{Quantum Software Architecture}
+
+\subsection{Representation Theory in Quantum Software}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+
+\part{Optional Topics}
+
+\section{The Bloch Sphere}
+
+\subsection{Global Phase and Projective States}
+
+\subsection{Bloch Coordinates}
+
+\subsection{Pauli Expectation Values}
+
+\subsection{Rotations of the Bloch Sphere}
+
+\subsection{Exercises}
+
+
+\section{Interference}
+
+\subsection{Hadamard Interference}
+
+\subsection{Phase and Amplitudes}
+
+\subsection{The Mach--Zehnder Interferometer}
+
+\subsection{Interference Fringes}
+
+\subsection{Exercises}
+
+
+\section{Which-Path Information}
+
+\subsection{Entanglement with a Path Register}
+
+\subsection{Loss of Interference}
+
+\subsection{Decoherence}
+
+\subsection{Quantum Erasure}
+
+\subsection{Exercises}
+
+\end{document}

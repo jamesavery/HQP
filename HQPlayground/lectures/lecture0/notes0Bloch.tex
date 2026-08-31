@@ -1,0 +1,1180 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+\usetikzlibrary{arrows.meta}
+
+
+
+
+\input{../macros}
+\input{listings-config}
+\lstset{literate=
+    {→}{{$\to$}}1 {←}{{$\leftarrow$}}1 {⇒}{{$\Rightarrow$}}1
+    {∀}{{$\forall$}}1 {∃}{{$\exists$}}1
+    {⊗}{{$\otimes$}}1 {∘}{{$\circ$}}1 {⊕}{{$\oplus$}}1
+    {ψ}{{$\psi$}}1 {φ}{{$\varphi$}}1 {θ}{{$\theta$}}1 {≈}{{$\approx$}}1 {π}{{$\pi$}}1
+    {⟨}{{$\langle$}}1 {⟩}{{$\rangle$}}1 {·}{{$\cdot$}}1
+    {²}{{$^2$}}1 {±}{{$\pm$}}1
+}
+
+\theoremstyle{definition}
+\newtheorem{exercise}{Exercise}[section]
+\newtheorem{quickCheck}{Quick Check}[section]
+
+
+
+% Complete, executable definitions use qppcode.  The checker extracts these
+% environments from this file; ordinary lstlisting blocks are transcripts,
+% declarations quoted from QPP, or deliberately incomplete exercises.
+\lstnewenvironment{qppcode}{\lstset{language=Haskell}}{}
+
+\title{Introduction to Quantum Computing\\
+       {\large with the Quantum Programming Playground}\\[1ex]
+       {\normalsize Lecture 0 notes --- ATPL 2026}}
+\author{James Avery (\texttt{avery@di.ku.dk}) \\ with a tiny bit of assistance from Thomas Mørk (\texttt{tm@math.ku.dk})}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+These notes introduce the mathematical model of quantum computation and its
+implementation in QPP, the \emph{Quantum Programming Playground}.  They are
+written for two audiences.  Computer-science students already know Haskell
+but may be meeting quantum computing for the first time; quantum-information
+students know the mathematics but may be new to functional programming.
+The first week's work connects the two subjects through QPP.
+
+We begin with three principles:
+\[
+  \text{states are unit vectors},\qquad
+  \text{gates are unitary maps},\qquad
+  \text{measurement follows the Born rule}.
+\]
+Each idea appears as mathematics and as a QPP value.  In the exercises, derive
+a prediction, implement it, and explain the result.  Haskell programmers
+should slow down at the derivations; quantum-information students should pay
+particular attention to types and recursion.
+
+\paragraph{Starting QPP.}
+From the QPP repository, run \lstinline|cabal repl lib:qpp| and import:
+\begin{lstlisting}
+import QPP
+import QPP.Semantics.Matrix
+import QPP.PrettyPrint
+import Data.Complex
+\end{lstlisting}
+Put definitions in a file such as \texttt{Playground.hs}; load it with
+\lstinline|:add Playground.hs| and reload after edits with \lstinline|:r|.
+Predict the result of each example before evaluating it.
+
+\section{Enough Haskell to begin}
+\label{sec:haskell}
+
+This section is a quick orientation.
+If the language is familiar, concentrate on the QPP types and notation.  If
+it is new, enter the examples in GHCi and keep your definitions in
+\texttt{Playground.hs}.  Type errors often reveal a mismatch between the
+program and the mathematics.
+
+\subsection{Expressions, types, and functions}
+
+GHCi evaluates expressions.  The command \lstinline|:type| (abbreviated
+\lstinline|:t|) reports an expression's type without evaluating it:
+\begin{lstlisting}
+ghci> 2 ^ 10
+1024
+ghci> :t sqrt
+sqrt :: Floating a => a -> a
+ghci> :t [1,2,3]
+[1,2,3] :: Num a => [a]
+\end{lstlisting}
+The constraint \lstinline|Floating a =>| permits any type \lstinline|a| that
+supports floating-point operations, not only \lstinline|Double|.
+A signature \lstinline|f :: A -> B| says that \lstinline|f| takes an
+\lstinline|A| and returns a \lstinline|B|.  Function application needs no
+parentheses: \lstinline|sqrt 2| means $\sqrt2$.  Application binds more
+tightly than infix operators, so \lstinline|magnitude a ^ 2| means
+\lstinline|(magnitude a) ^ 2|.
+
+Definitions are equations, and names denote values rather than mutable
+variables.  This becomes important when randomness is made an explicit input
+in Section~\ref{sec:measurement}.
+
+\subsection{Complex numbers and lists}
+
+Quantum amplitudes are complex numbers.  QPP uses
+\lstinline|ComplexT| as an abbreviation for \lstinline|Complex Double|.
+The constructor \lstinline|a :+ b| denotes $a+bi$:
+\begin{lstlisting}
+ghci> magnitude (0.6 :+ 0.8)
+1.0
+ghci> conjugate (2 :+ 3)
+2.0 :+ (-3.0)
+\end{lstlisting}
+A bare numeric literal can be used as a complex number when the surrounding
+type requires it; for example, \lstinline|[3,4] :: [ComplexT]| denotes two
+real amplitudes.
+
+Lists occur throughout QPP.  A list comprehension transforms or enumerates
+their elements:
+\begin{lstlisting}
+ghci> [x * x | x <- [1,2,3,4]]
+[1,4,9,16]
+ghci> [(a,b) | a <- [0,1], b <- [0,1]]
+[(0,0),(0,1),(1,0),(1,1)]
+\end{lstlisting}
+The second form will later enumerate the basis states of two qubits.
+Ordinary library functions such as \lstinline|map|, \lstinline|sum|, and
+\lstinline|length| are equally useful.
+
+As a first example, the Euclidean norm of a list of amplitudes is:
+\begin{qppcode}
+norm2 :: [ComplexT] -> Double
+norm2 as = sqrt (sum [magnitude a ^ 2 | a <- as])
+
+ghci> norm2 [3,4]
+5.0
+\end{qppcode}
+
+\begin{exercise}[Types as specifications]
+Predict the types of \lstinline|magnitude|, \lstinline|sum|,
+\lstinline|map magnitude|, and \lstinline|[0.6 :+ 0.8, 1]|; then ask GHCi.
+Some inferred types will be more general than expected.  Read the type-class
+constraints as requirements on the operations a type must support.
+
+Then implement:
+\begin{lstlisting}
+average :: [Double] -> Double
+timesI  :: ComplexT -> ComplexT
+\end{lstlisting}
+Use \lstinline|fromIntegral| to convert the result of \lstinline|length|.
+Check that \lstinline|average [1,2,3]| is $2$ and that applying
+\lstinline|timesI| twice multiplies a number by $-1$.
+\end{exercise}
+
+\section{States, amplitudes, and probabilities}
+\label{sec:states}
+
+\subsection{A qubit is a vector}
+
+A classical bit has one of two values.  A qubit has a state in the
+two-dimensional complex vector space $\C^2$.  We name its standard basis
+$\ket0$ and $\ket1$, so every one-qubit state has the form
+\[
+  \ket\psi = a\ket0+b\ket1,
+  \qquad a,b\in\C.
+\]
+The coefficients $a$ and $b$ are \emph{amplitudes}.  We represent a pure state
+by a normalised vector:
+\[
+  \norm{\psi}^2=|a|^2+|b|^2=1.
+\]
+For example,
+\[
+  \ket\psi=\sqrt{\tfrac13}\ket0+\sqrt{\tfrac23}\ket1
+\]
+is a valid state.  In QPP:
+\begin{qppcode}
+psi :: StateT
+psi = sqrt (1/3) .* ket [0] .+ sqrt (2/3) .* ket [1]
+
+ghci> printS psi
+0.5773502691896257*(ket [0]) + 0.816496580927726*(ket [1])
+ghci> norm psi
+1.0
+\end{qppcode}
+Here \lstinline|ket [0]| constructs $\ket0$, \lstinline|.*| is scalar
+multiplication, and \lstinline|.+| is vector addition.  QPP uses
+floating-point complex numbers, so small rounding errors are normal.
+\lstinline|StateT| is the matrix backend's state representation; use these
+operations rather than relying on its internals.
+
+\subsection{The Born rule}
+
+The amplitudes are not directly observable.  Measuring the state above in
+the computational basis returns a classical bit.  The Born rule assigns the
+probabilities
+\[
+  \Pr(0)=|a|^2,\qquad \Pr(1)=|b|^2.
+\]
+Thus measuring $\ket\psi$ gives $0$ with probability $1/3$ and $1$ with
+probability $2/3$.
+
+More generally, the inner product is
+\[
+  \inner{\varphi}{\psi}=\sum_k \overline{\varphi_k}\psi_k,
+\]
+and the probability of outcome $\varphi$ in an orthonormal measurement basis,
+when the system is in the normalised state $\ket\psi$, is
+\[
+  \Pr(\varphi\mid\psi)=|\inner{\varphi}{\psi}|^2.
+\]
+This gives a compact QPP definition:
+\begin{qppcode}
+prob :: StateT -> StateT -> Double
+prob φ ψ = magnitude (inner φ ψ) ^ 2
+
+ghci> [prob (ket [k]) psi | k <- [0,1]]
+[0.3333333333333333,0.6666666666666666]
+\end{qppcode}
+The function \lstinline|prob| calculates a probability; it does not perform a
+measurement or change the state.  Section~\ref{sec:measurement} introduces
+\lstinline|Measure|, which samples an outcome and updates the state.
+The conjugation in the first argument matters.  For example,
+$\inner{i\psi}{\psi}=-i\inner{\psi}{\psi}$.
+
+The type of \lstinline|inner| also illustrates a central Haskell convention:
+\begin{lstlisting}
+inner :: StateT -> StateT -> ComplexT
+\end{lstlisting}
+Arrows associate to the right, so this means
+\lstinline|StateT -> (StateT -> ComplexT)|.  Supplying only the first
+argument produces a new function:
+\begin{qppcode}
+bra :: StateT -> (StateT -> ComplexT)
+bra φ = inner φ
+
+ghci> bra (ket [1]) psi
+0.816496580927726 :+ 0.0
+\end{qppcode}
+This is \emph{partial application}.  Dirac notation makes the same split:
+$\bra\varphi$ maps $\ket\psi$ to $\inner{\varphi}{\psi}$.  The notation and
+the function type have the same shape.
+
+\begin{exercise}[Amplitudes and probabilities]
+Define
+\begin{lstlisting}
+born :: [ComplexT] -> [Double]
+\end{lstlisting}
+so that \lstinline|born as| returns $|a_k|^2$ for every amplitude in
+\lstinline|as|.  Then define
+\begin{lstlisting}
+normalizeAmps :: [ComplexT] -> [ComplexT]
+\end{lstlisting}
+which normalises a nonzero amplitude vector.  Check the result on
+\lstinline|[3,4]|.  Check also that the entries returned by \lstinline|born|
+sum to approximately $1$ after normalisation.  What should the normaliser do
+on the zero vector?
+\end{exercise}
+
+\subsection{A state depends on the chosen basis}
+
+The computational basis is convenient, but not privileged.  Define
+\[
+  \ket+=\frac{\ket0+\ket1}{\sqrt2},\qquad
+  \ket-=\frac{\ket0-\ket1}{\sqrt2}.
+\]
+These vectors are orthonormal and therefore form another basis of $\C^2$.
+In QPP they are obtained by applying $H$ to the computational basis:
+\begin{qppcode}
+plus  = apply (evalOp H) (ket [0])
+minus = apply (evalOp H) (ket [1])
+\end{qppcode}
+They have identical computational-basis probabilities, but their relative
+sign can affect a later computation.  To measure in the $\pm$ basis, apply
+$H$ and then measure in the computational basis.  Indeed,
+$H\ket+=\ket0$ and $H\ket-=\ket1$.
+
+Multiplying an entire state by a phase $e^{i\delta}$ changes no measurement
+probability, because
+\[
+  |\inner{\varphi}{e^{i\delta}\psi}|^2
+  =|e^{i\delta}|^2|\inner{\varphi}{\psi}|^2
+  =|\inner{\varphi}{\psi}|^2.
+\]
+Such a \emph{global phase} is unobservable.  A phase between two amplitudes
+is a \emph{relative phase}; it can be observed through interference.
+
+\begin{exercise}[Relative phase becomes an outcome]
+Construct
+\begin{qppcode}
+wPlus  = normalize (3 .* ket [0] .+ 4 .* ket [1])
+wMinus = normalize (3 .* ket [0] .- 4 .* ket [1])
+\end{qppcode}
+First derive and then compute their computational-basis probabilities.  Next
+apply $H$ to both states and repeat.  Why can the second experiment distinguish
+the states when the first cannot?  Express the calculation with one Haskell
+function that accepts a state and returns its two probabilities.
+\end{exercise}
+
+\section{Quantum gates and QPP}
+\label{sec:gates}
+
+\subsection{Unitary evolution}
+
+Between measurements an isolated quantum system evolves linearly without
+changing norms.  In finite dimensions this means that evolution is given by
+a unitary matrix $U$, satisfying
+\[
+  U^\dagger U=I.
+\]
+Unitarity has two immediate consequences: the output is still a valid state,
+and the evolution is reversible, with inverse $U^\dagger$.
+
+Four basic one-qubit gates are
+\[
+  X=\begin{pmatrix}0&1\\1&0\end{pmatrix},\quad
+  Y=\begin{pmatrix}0&-i\\i&0\end{pmatrix},\quad
+  Z=\begin{pmatrix}1&0\\0&-1\end{pmatrix},\quad
+  H=\frac1{\sqrt2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}.
+\]
+$X$ exchanges $\ket0$ and $\ket1$,
+$Y\ket0=i\ket1$ and $Y\ket1=-i\ket0$, while $Z$ changes the sign of the
+$\ket1$ amplitude.  Finally, $H$ changes between the computational and
+$\pm$ bases:
+\[
+  H\ket0=\ket+,\quad H\ket1=\ket-,\qquad
+  H\ket+=\ket0,\quad H\ket-=\ket1.
+\]
+
+\subsection{Operators as syntax trees}
+
+QPP represents an operator by a value of the algebraic data type \lstinline|QOp|.
+The relevant constructors are:
+\begin{lstlisting}
+data QOp = Id Nat | X | Y | Z | H | SX
+         | R QOp Rational
+         | C QOp
+         | Tensor QOp QOp
+         | Compose QOp QOp
+         | Adjoint QOp
+         -- further constructors omitted
+\end{lstlisting}
+Here \lstinline|I| abbreviates \lstinline|Id 1|, the one-qubit identity, and
+\lstinline|SX| is a square root of $X$: \lstinline|SX <> SX| has the same
+matrix as \lstinline|X|.
+
+Constructing a \lstinline|QOp| builds a syntax tree; it does not yet multiply
+matrices.  This separation lets us inspect and transform operator syntax before
+choosing how to execute it.
+\begin{lstlisting}
+ghci> H <> H
+Compose H H
+ghci> C X
+C X
+\end{lstlisting}
+For readers new to Haskell, each line of the declaration introduces a
+\emph{constructor}.  A constructor is a function for building values:
+\lstinline|R| stores an axis and an angle, \lstinline|C| stores a
+sub-operator, and \lstinline|Tensor| stores two sub-operators.  Consequently,
+a value such as \lstinline|C (H ⊗ X)|
+is a tree whose root is \lstinline|C| and whose child is a
+\lstinline|Tensor| node.  This is why QPP can transform an operator expression
+without evaluating it.
+
+Pattern matching takes such values apart.  For example, a small analysis can
+recognise the outermost constructor:
+\begin{qppcode}
+hasOuterControl :: QOp -> Bool
+hasOuterControl (C _) = True
+hasOuterControl _     = False
+\end{qppcode}
+The first pattern matches a \lstinline|C| node and ignores its child; the
+second matches everything else.  Recursive analyses also inspect children.
+
+The matrix backend gives that syntax a meaning:
+\begin{center}
+\begin{tabular}{ll}
+\lstinline|evalOp u| & evaluate an operator as a matrix \\
+\lstinline|apply m s| & apply a matrix to a state \\
+\lstinline|printM m| & display a matrix \\
+\lstinline|printS s| & display a state
+\end{tabular}
+\end{center}
+For example:
+\begin{lstlisting}
+ghci> printM (evalOp X)
+ [[0,1],
+  [1,0]]
+ghci> printS (apply (evalOp H) (ket [0]))
+0.7071067811865475*(ket [0]) + 0.7071067811865475*(ket [1])
+\end{lstlisting}
+
+Composition is written \lstinline|u <> v| or \lstinline|u ∘ v| and follows
+the mathematical convention: apply the right-hand operator first.  Tensor
+product, written \lstinline|u ⊗ v| (ASCII: \lstinline|u <.> v|), places
+operators on separate registers.  Finally, \lstinline|adj u| constructs the
+adjoint:
+\begin{lstlisting}
+ghci> printS (apply (evalOp (adj SX <> SX)) (ket [0]))
+1*(ket [0])
+\end{lstlisting}
+
+\begin{exercise}[Reading operator syntax]
+Predict the result of each expression before running it:
+\begin{lstlisting}
+apply (evalOp (X ⊗ I)) (ket [0,1])
+apply (evalOp (H <> H)) (ket [0])
+apply (evalOp (H <> Z <> H)) (ket [0])
+\end{lstlisting}
+Explain the third result by following the state through the three gates.
+\end{exercise}
+
+\begin{exercise}[Structural recursion]
+Write \lstinline|arity :: QOp -> Int| by pattern matching on the constructors
+above.  A control adds one qubit; a tensor product adds arities; an adjoint
+and a rotation preserve arity.  Assume compositions are well formed, so their
+operands have equal arity.
+Start with:
+\begin{lstlisting}
+arity :: QOp -> Int
+arity (Id n)       = n
+arity X            = 1
+arity (C u)        = 1 + arity u
+arity (Tensor u v) = arity u + arity v
+-- complete the remaining cases
+\end{lstlisting}
+The patterns identify the outer constructor and name its fields; calls on
+\lstinline|u| and \lstinline|v| recurse on smaller trees.  Test against the
+library on every constructor, including a rotation about a multi-qubit
+operator.
+
+($\star$) Use \lstinline|Maybe| to make composition failure explicit.  Assuming
+the children are otherwise valid, its composition case is:
+\begin{lstlisting}
+checkedArity (Compose u v) =
+  case (checkedArity u, checkedArity v) of
+    (Just m, Just n) | m == n -> Just m
+    _                         -> Nothing
+\end{lstlisting}
+This separates validation from the structural calculation; the exercise sheet
+extends the idea to a complete validator.
+\end{exercise}
+
+%%%%%%%%%%%%%%%%%%% BLOCH BEGIN %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The Bloch sphere}
+\label{sec:bloch}
+
+A normalised one-qubit state has the form
+\[
+  \ket\psi = a\ket0+b\ket1,
+  \qquad |a|^2+|b|^2=1.
+\]
+Because a global phase is physically unobservable, states that differ only by
+multiplication by $e^{i\delta}$ represent the same physical state.  We may
+therefore choose a representative for which the amplitude of $\ket0$ is real
+and nonnegative.
+
+Write
+\[
+  a = e^{i\delta}r,
+  \qquad
+  b = e^{i\delta}se^{i\varphi},
+\]
+where $r,s\ge 0$ and $r^2+s^2=1$.  Factoring out the global phase gives
+\[
+  \ket\psi
+  \sim
+  r\ket0+s e^{i\varphi}\ket1.
+\]
+Since $r^2+s^2=1$, there exists an angle $\theta\in[0,\pi]$ such that
+\[
+  r=\cos\frac{\theta}{2},
+  \qquad
+  s=\sin\frac{\theta}{2}.
+\]
+Hence every pure one-qubit state can be written as
+\[
+  \ket\psi=
+  \cos\frac{\theta}{2}\,\ket0
+  + e^{i\varphi}\sin\frac{\theta}{2}\,\ket1
+\]
+for suitable angles
+\[
+  0\le\theta\le\pi,
+  \qquad
+  0\le\varphi<2\pi.
+\]
+
+The pair $(\theta,\varphi)$ are spherical coordinates.  They define the
+corresponding point
+\[
+  \mathbf r=
+  \begin{pmatrix}
+    \sin\theta\cos\varphi\\
+    \sin\theta\sin\varphi\\
+    \cos\theta
+  \end{pmatrix}
+\]
+on the unit sphere in $\mathbb R^3$, called the \emph{Bloch sphere}.  
+
+
+\begin{quickCheck}[Spherical coordinates]
+Does the point parametrized by $(\theta,\varphi)$ lie on the 2-sphere? Does the coordinates cover the entire sphere?
+\end{quickCheck}
+
+
+\begin{figure}[t]
+\centering
+
+\begin{tikzpicture}[scale=2.6,>=Latex]
+
+%------------------------------------------------
+% Sphere
+%------------------------------------------------
+
+\draw (0,0) circle (1);
+
+% equator (xy-plane)
+\draw
+(-1,0)
+arc[start angle=180,end angle=360,
+    x radius=1,y radius=0.35];
+
+\draw[dashed]
+(-1,0)
+arc[start angle=180,end angle=0,
+    x radius=1,y radius=0.35];
+
+%------------------------------------------------
+% Axes
+%------------------------------------------------
+
+% z-axis
+\draw[->] (0,-1.25) -- (0,1.25);
+\node[above] at (0,1.25) {$z$};
+
+% y-axis
+\draw[->] (-1.25,0) -- (1.25,0);
+\node[right] at (1.25,0) {$y$};
+
+% x-axis (positive x toward lower left)
+%\draw[dashed] (0.80,0.55) -- (0,0);
+\draw[dashed] (0.55,0.38) -- (0,0);
+
+\draw[->] (0,0) -- (-0.80,-0.55);
+
+\node[below left] at (-0.85,-0.60) {$x$};
+
+%------------------------------------------------
+% Pauli eigenstates
+%------------------------------------------------
+
+% |0>, |1>
+\fill (0,0.9) circle (0.02);
+\draw (0,-0.9) circle (0.02);
+
+\node[left] at (0,0.85) {$\ket0$};
+\node[right] at (0,-0.85) {$\ket1$};
+
+% |+i>, |-i>
+\fill (1,0) circle (0.02);
+\fill (-1,0) circle (0.02);
+
+\node[above right] at (1,0)
+  {$\ket{+i}$};
+
+\node[above left] at (-1,0)
+  {$\ket{-i}$};
+
+% |+>, |->
+\fill (-0.445,-0.31) circle (0.02);
+\draw (0.45,0.31) circle (0.02);
+
+\node[below right] at (-0.47,-0.33)
+  {$\ket+$};
+
+\node[above right] at (0.52,0.26)
+  {$\ket-$};
+
+%------------------------------------------------
+% Generic state
+%------------------------------------------------
+
+\coordinate (psi)  at (0.40,0.72);
+
+% projected point in xy-plane
+\coordinate (proj) at (0.40,-0.10);
+
+\draw[very thick,blue,->] (0,0) -- (psi);
+
+\fill[blue] (psi) circle (0.025);
+%\node[above left=1pt and 1pt] at (psi) {$\ket{\psi}$};
+\node at ($(psi)+(-0.09,0.07)$) {$\ket{\psi}$};
+
+% projection onto equatorial plane
+\draw[densely dashed,blue] (psi) -- (proj);
+\draw[densely dashed,blue] (0,0) -- (proj);
+
+\fill[blue] (proj) circle (0.015);
+
+%------------------------------------------------
+% theta
+%------------------------------------------------
+
+\draw
+(0,0.35)
+arc[start angle=90,end angle=61,radius=0.35];
+
+\node at (0.14,0.44)
+{$\theta$};
+
+%------------------------------------------------
+% phi
+%------------------------------------------------
+
+% positive x direction
+\coordinate (xdir) at (-0.19,-0.13);
+
+%\draw
+%(-0.19,-0.13)
+%arc[start angle=-145,end angle=-10,radius=0.80];
+
+
+\draw
+(-0.21,-0.16)
+arc[start angle=263,end angle=300,
+    x radius=1,y radius=0.35];
+
+
+\node at (0.10,-0.23)
+{$\varphi$};
+
+\end{tikzpicture}
+
+\caption{
+The Bloch sphere representation of a pure qubit state.
+The poles are the computational basis states $\ket0$ and $\ket1$.
+The states $\ket\pm=(\ket0\pm\ket1)/\sqrt2$ are eigenstates of $X$,
+while $\ket{\pm i}=(\ket0\pm i\ket1)/\sqrt2$ are eigenstates of $Y$.
+The angles $\theta$ and $\varphi$ determine the state
+$\ket{\psi}=
+\cos(\theta/2)\ket0+
+e^{i\varphi}\sin(\theta/2)\ket1$.
+}
+\label{fig:blochsphere}
+
+\end{figure}
+
+The north pole $(0,0,1)$ is $\ket0$ and the south pole $(0,0,-1)$ is $\ket1$.
+Equatorial states satisfy $\theta=\pi/2$; for example,
+\[
+  \ket+ =
+  \frac{\ket0+\ket1}{\sqrt2},
+  \qquad
+  \ket- =
+  \frac{\ket0-\ket1}{\sqrt2},
+\]
+corresponding to the points $(1,0,0)$ and $(-1,0,0)$.
+
+\begin{quickCheck}[Basis states on the Bloch sphere]
+Use the Bloch decomposition to check these claims.
+\end{quickCheck}
+
+The Bloch coordinates can also be extracted directly from the expectation
+values {\color{red}Det er ikke gennemgået!} of the Pauli operators
+\[
+  X=
+  \begin{pmatrix}0&1\\1&0\end{pmatrix},
+  \qquad
+  Y=
+  \begin{pmatrix}0&-i\\i&0\end{pmatrix},
+  \qquad
+  Z=
+  \begin{pmatrix}1&0\\0&-1\end{pmatrix}.
+\]
+For a pure state $\ket\psi$, define
+\[
+  r_x=\bra\psi X\ket\psi,
+  \qquad
+  r_y=\bra\psi Y\ket\psi,
+  \qquad
+  r_z=\bra\psi Z\ket\psi.
+\]
+Equivalently,
+\[
+  \mathbf r
+  =
+  \bigl(
+    \bra\psi X\ket\psi,\,
+    \bra\psi Y\ket\psi,\,
+    \bra\psi Z\ket\psi
+  \bigr)
+\]
+or, writing $\boldsymbol{\sigma}=(X,Y,Z)$,
+\[
+  \mathbf r
+  =
+  \langle \psi|\boldsymbol{\sigma}|\psi\rangle .
+\]
+
+Substituting
+\[
+  \ket\psi=
+  \cos\frac{\theta}{2}\ket0
+  +e^{i\varphi}\sin\frac{\theta}{2}\ket1
+\]
+gives
+\[
+  r_x=\sin\theta\cos\varphi,
+  \qquad
+  r_y=\sin\theta\sin\varphi,
+  \qquad
+  r_z=\cos\theta,
+\]
+which agrees with the spherical-coordinate description above.  Thus every
+pure one-qubit state corresponds to a unique point on the surface of the
+Bloch sphere, and vice versa.
+
+\begin{exercise}[Bloch vectors in QPP]
+For a one-qubit state $\ket\psi$, the Bloch vector is
+\[
+  \mathbf r =
+  \bigl(
+    \bra\psi X\ket\psi,\,
+    \bra\psi Y\ket\psi,\,
+    \bra\psi Z\ket\psi
+  \bigr).
+\]
+
+Write a function
+
+\begin{lstlisting}
+expect :: QOp -> StateT -> Double
+\end{lstlisting}
+
+that computes the expectation value
+\[
+  \bra\psi A\ket\psi
+\]
+of a one-qubit observable $A$.  The result should be real for the operators
+$X$, $Y$, and $Z$.
+
+Then define
+
+\begin{lstlisting}
+bloch :: StateT -> (Double,Double,Double)
+\end{lstlisting}
+
+using your function \lstinline|expect|.
+
+Check your implementation on the states
+
+\begin{lstlisting}
+ket [0]
+ket [1]
+apply (evalOp H) (ket [0])
+apply (evalOp H) (ket [1])
+\end{lstlisting}
+
+and verify that their Bloch vectors are approximately
+
+\[
+  (0,0,1),\quad
+  (0,0,-1),\quad
+  (1,0,0),\quad
+  (-1,0,0).
+\]
+
+Next define
+
+\begin{lstlisting}
+rotate :: QOp -> StateT -> (Double,Double,Double)
+rotate u ψ = bloch (apply (evalOp u) ψ)
+\end{lstlisting}
+
+and use it to investigate the action of the Pauli gates on Bloch vectors.
+
+Evaluate
+
+\begin{lstlisting}
+rotate X (ket [0])
+rotate Y (ket [0])
+rotate Z plus
+rotate X plus
+\end{lstlisting}
+
+where \lstinline|plus| is the state $\ket+$ from
+Section~\ref{sec:states}.
+
+Use the results to determine which axis is fixed by each Pauli gate.
+Explain why
+
+\[
+  X:(x,y,z)\mapsto(x,-y,-z),
+\]
+
+\[
+  Y:(x,y,z)\mapsto(-x,y,-z),
+\]
+
+\[
+  Z:(x,y,z)\mapsto(-x,-y,z),
+\]
+
+and conclude that $X$, $Y$, and $Z$ act as $180^\circ$
+rotations of the Bloch sphere about the $x$-, $y$-, and $z$-axes.
+\end{exercise}
+
+
+%%%%%%%%%%%%%%%%%%% BLOCH END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+\section{Interference}
+\label{sec:interference}
+
+Apply $H$ twice to $\ket0$:
+\[
+  \ket0 \xrightarrow{H} \frac{\ket0+\ket1}{\sqrt2}
+  \xrightarrow{H}
+  \frac{(\ket0+\ket1)+(\ket0-\ket1)}2=\ket0.
+\]
+The two contributions to the $\ket1$ amplitude cancel.  This is
+\emph{interference}.  It is misleading to imagine that the first $H$ tosses
+a coin: no random event occurs until measurement.  Amplitudes evolve and may
+cancel; classical probabilities cannot.
+
+A $Z$-rotation supplies a controllable relative phase:
+\[
+  R_Z(\theta)=
+  \begin{pmatrix}
+    e^{-i\theta\pi/2}&0\\0&e^{i\theta\pi/2}
+  \end{pmatrix}.
+\]
+QPP measures the parameter in units of $\pi$, so this is \lstinline|R Z θ|.
+Placing the rotation between two Hadamard gates gives
+\[
+  \ket0 \xrightarrow{H} \ket+
+  \xrightarrow{R_Z(\theta)}
+  \frac{e^{-i\theta\pi/2}\ket0+e^{i\theta\pi/2}\ket1}{\sqrt2}
+  \xrightarrow{H}
+  \cos\!\left(\frac{\theta\pi}{2}\right)\ket0
+  -i\sin\!\left(\frac{\theta\pi}{2}\right)\ket1.
+\]
+Hence
+\[
+  \Pr(0)=\cos^2\!\left(\frac{\theta\pi}{2}\right),\qquad
+  \Pr(1)=\sin^2\!\left(\frac{\theta\pi}{2}\right).
+\]
+This circuit is the qubit model of a Mach--Zehnder interferometer: the two
+Hadamards act as beam splitters and the $Z$-rotation changes one path's
+phase.
+\begin{qppcode}
+mziOp :: Rational -> QOp
+mziOp θ = H ∘ R Z θ ∘ H
+
+ghci> prob (ket [0]) (apply (evalOp (mziOp (1/4))) (ket [0]))
+0.8535533905932733
+\end{qppcode}
+
+\begin{exercise}[The interference fringe]
+Compute $\Pr(0)$ at $\theta=0,\frac14,\frac12,\frac34,1$ on paper and
+define
+\begin{lstlisting}
+p0 :: Rational -> Double
+\end{lstlisting}
+to compute the same values from \lstinline|mziOp| using \lstinline|prob|.
+Generate the five results with \lstinline|map| or a comprehension and compare
+them with the formula.  Explain the endpoints using constructive and
+destructive interference.
+\end{exercise}
+
+\section{Many qubits and entanglement}
+\label{sec:many}
+
+The state space of two qubits is the tensor product
+\[
+  \C^2\otimes\C^2\cong\C^4,
+\]
+with basis $\ket{00},\ket{01},\ket{10},\ket{11}$.  In general, an
+$n$-qubit state is
+\[
+  \ket\psi=\sum_{x\in\{0,1\}^n}a_x\ket x,
+  \qquad \sum_x|a_x|^2=1.
+\]
+It therefore has $2^n$ amplitudes.  Quantum algorithms manipulate these
+amplitudes through structured operations and interference; they cannot simply
+read them out, since one measurement returns only classical outcomes.
+
+Some joint states factor into states of their parts.  For example,
+\[
+  \ket+\otimes\ket0=\frac{\ket{00}+\ket{10}}{\sqrt2}
+\]
+is a \emph{product state}.  A state that does not factor is
+\emph{entangled}.  The standard example is the Bell state
+\[
+  \ket{\Phi^+}=\frac{\ket{00}+\ket{11}}{\sqrt2}.
+\]
+
+The controlled-$X$ gate, \lstinline|C X|, flips its target precisely when
+its control is $1$.  It produces the Bell state from $\ket{00}$:
+\begin{qppcode}
+bellOp :: QOp
+bellOp = C X ∘ (H ⊗ I)
+
+bell :: StateT
+bell = apply (evalOp bellOp) (ket [0,0])
+
+ghci> printS bell
+0.7071067811865475*(ket [0,0]) + 0.7071067811865475*(ket [1,1])
+ghci> [prob (ket [a,b]) bell | a <- [0,1], b <- [0,1]]
+[0.4999999999999999,0.0,0.0,0.4999999999999999]
+\end{qppcode}
+Measuring either qubit in the computational basis gives an unbiased bit, and
+the outcomes are perfectly correlated.  A shared classical random bit could
+produce the same distribution.  What makes the Bell state entangled is that
+its amplitude vector cannot be written as a tensor product of one-qubit state
+vectors.
+
+\begin{exercise}[Why the Bell state is entangled]
+Expand
+\[
+  (a_0\ket0+a_1\ket1)\otimes(b_0\ket0+b_1\ket1).
+\]
+Assume it equals $\ket{\Phi^+}$ and use the four coefficient equations to
+derive a contradiction.  A nonzero two-qubit amplitude vector is a product
+exactly when
+\[
+  a_{00}a_{11}-a_{01}a_{10}=0.
+\]
+Derive this condition, then implement it for a four-element amplitude list:
+\begin{lstlisting}
+productDet :: [ComplexT] -> ComplexT
+productDet [a00,a01,a10,a11] = undefined -- complete this expression
+productDet _                  = error "expected four amplitudes"
+\end{lstlisting}
+Evaluate it on the Bell amplitudes and on
+$\frac12\bigl((\ket0+\ket1)\otimes(\ket0-\ket1)\bigr)$.
+\end{exercise}
+
+\begin{exercise}[Four Bell states]
+Starting from \lstinline|bellOp|, produce the other three Bell states
+\[
+ \frac{\ket{00}-\ket{11}}{\sqrt2},\quad
+ \frac{\ket{01}+\ket{10}}{\sqrt2},\quad
+ \frac{\ket{01}-\ket{10}}{\sqrt2}
+\]
+by applying $X$ and $Z$ to one qubit.  A result that differs only by global
+phase represents the same physical state.  Write a function that returns all
+four computational-basis probabilities of a two-qubit state, and use it to
+compare the four Bell states.  Do those probabilities distinguish them?
+\end{exercise}
+
+\begin{exercise}[Bell-basis measurement]
+Apply \lstinline|adj bellOp| to each Bell state.  Derive which computational
+basis ket each state becomes, then check all four mappings in QPP.  After
+Section~\ref{sec:measurement}, append a measurement to obtain a Bell-basis
+measurement program.
+\end{exercise}
+
+\section{Programs with measurement}
+\label{sec:measurement}
+
+Measurement is probabilistic and changes the state.  When a computational-
+basis measurement returns $x$, the state collapses to the component
+consistent with $x$, renormalised.  QPP distinguishes unitary operators from
+programs that may measure:
+\begin{lstlisting}
+data Step = Unitary QOp
+          | Initialize [Nat] [Bool] -- reset selected qubits
+          | Measure [Nat]
+
+type Program = [Step]
+\end{lstlisting}
+Unlike the \lstinline|data| declaration, the \lstinline|type| declaration
+does not introduce a new representation: it gives \lstinline|[Step]| a useful
+name.  Sequential program structure is therefore represented by an ordinary
+Haskell list, while each element records what kind of step to perform.
+For example, the following program prepares $\ket+$ and measures it:
+\begin{qppcode}
+coin :: Program
+coin = [Unitary H, Measure [0]]
+\end{qppcode}
+
+The interpreter receives its random choices as a list of numbers in $[0,1)$.
+Its interface and result types are:
+\begin{lstlisting}
+type RNG      = [Double]
+type Outcomes = [Bool] -- False = 0, True = 1
+
+evalProg :: Program -> StateT -> RNG
+         -> (StateT, Outcomes, RNG)
+\end{lstlisting}
+The expression \lstinline|repeat x| is the infinite list
+\lstinline|[x,x,...]|.  Such constant streams let us force either side of a
+fair measurement:
+\begin{qppcode}
+choose0, choose1 :: RNG
+choose0 = repeat 0.0
+choose1 = repeat 0.999
+
+ghci> take 3 choose0
+[0.0,0.0,0.0]
+ghci> let (_, o0, _) = evalProg coin (ket [0]) choose0
+ghci> let (_, o1, _) = evalProg coin (ket [0]) choose1
+ghci> (o0, o1)
+([False],[True])
+\end{qppcode}
+Haskell evaluates only the prefix demanded by \lstinline|take| or
+\lstinline|evalProg|, so a
+pure function can receive an unbounded supply of choices and return the unused
+tail.  The patterns above deconstruct result triples; \lstinline|_| ignores
+components we do not need.
+
+For sampling, replace the test streams by a seeded pseudorandom stream:
+\begin{lstlisting}
+import System.Random (mkStdGen, randoms)
+\end{lstlisting}
+\begin{qppcode}
+run :: StateT -> Program -> Int -> (StateT, Outcomes, RNG)
+run start p seed = evalProg p start (randoms (mkStdGen seed))
+\end{qppcode}
+The seed makes each run reproducible while keeping evaluation pure.
+
+Measuring one qubit of a Bell pair displays both randomness and collapse:
+\begin{qppcode}
+peek :: Program
+peek = [Unitary bellOp, Measure [0]]
+
+ghci> (s0, o0, _) = evalProg peek (ket [0,0]) choose0
+ghci> o0
+[False]
+ghci> printS s0
+1*(ket [0,0])
+ghci> (s1, o1, _) = evalProg peek (ket [0,0]) choose1
+ghci> o1
+[True]
+ghci> printS s1
+1*(ket [1,1])
+\end{qppcode}
+Only $00$ and $11$ can occur; seeded runs sample between them reproducibly.
+
+\begin{exercise}[Sampling]
+Write
+\begin{lstlisting}
+freq0 :: StateT -> Program -> Int -> Double
+\end{lstlisting}
+which runs seeds $1,\ldots,n$ and returns the fraction whose outcome is
+\lstinline|[False]|.  Assume $n>0$ and that the program performs one
+measurement.  Compare the sampled frequencies of
+\begin{lstlisting}
+[Unitary H, Measure [0]]
+[Unitary H, Unitary H, Measure [0]]
+\end{lstlisting}
+with their exact Born probabilities.  Explain why two Hadamards do not make
+the outcome ``more random''.
+
+One possible outline is a list comprehension with a local pattern:
+\begin{lstlisting}
+[outcome | seed <- [1..n],
+           let (_, outcome, _) = run start program seed]
+\end{lstlisting}
+Use \lstinline|length| to count matching outcomes and
+\lstinline|fromIntegral| before division.
+\end{exercise}
+
+\noindent\begin{minipage}{\textwidth}
+\section{Which-path information}
+\label{sec:whichpath}
+
+Interference requires alternative paths to recombine into the same final
+state.  We can prevent this by recording the path in a second qubit.  Insert
+a controlled $X$ between the phase shift and the final Hadamard:
+\begin{qppcode}
+mziWP :: Rational -> Program
+mziWP θ =
+  [ Unitary ((H ⊗ I) ∘ C X ∘ (R Z θ ⊗ I) ∘ (H ⊗ I))
+  , Measure [0]
+  ]
+\end{qppcode}
+\end{minipage}
+After \lstinline|C X|, the two alternatives are tagged by orthogonal states
+of the second qubit:
+\[
+  \frac{e^{-i\theta\pi/2}\ket{00}
+        +e^{i\theta\pi/2}\ket{11}}{\sqrt2}.
+\]
+The final $H$ acts only on the first qubit.  It cannot make the $\ket{00}$
+and $\ket{11}$ alternatives coincide, so their amplitudes do not interfere.
+The first qubit is now measured as $0$ or $1$ with equal probability for
+every $\theta$.
+
+No observer needs to read the path record.  Entanglement with two
+distinguishable record states is enough.  In a physical machine, uncontrolled
+interactions with the environment create such records.  If the record is
+inaccessible, the first qubit no longer displays interference.  This loss of
+coherence in the subsystem is called \emph{decoherence}.
+
+\begin{exercise}[Erase the path record]
+Insert a second \lstinline|C X| immediately after the first.  Predict the
+result before sampling it.  Why does the interference fringe return?  State
+the conclusion in terms of information, not merely the identity
+$\mathrm{CNOT}^2=I$.
+\end{exercise}
+
+\section{Reversing a quantum program}
+\label{sec:reversal}
+
+A program containing only unitary steps can be collapsed to one unitary
+operator and reversed.  The mathematics is
+\[
+  (UV)^\dagger=V^\dagger U^\dagger,
+  \qquad
+  (U\otimes V)^\dagger=U^\dagger\otimes V^\dagger,
+\]
+and, for a controlled operator and a rotation about a Hermitian axis $A$,
+\[
+  (C(U))^\dagger=C(U^\dagger),\qquad
+  R_A(\theta)^\dagger=R_A(-\theta).
+\]
+The reversal in the first identity is essential: to undo ``first $V$, then
+$U$'', undo $U$ first.  Tensor factors do not reverse because they act side
+by side rather than in sequence.
+
+QPP exposes the \lstinline|Adjoint| constructor as \lstinline|adj|.  It need
+not invert a matrix numerically: recursion over the syntax tree can invert
+each gate and reverse composition.  The result remains QPP syntax that any
+backend can interpret.  Check the Bell circuit with
+\lstinline|printM (evalOp (adj bellOp <> bellOp))|.
+
+\begin{exercise}[Adjoints by structural recursion ($\star$)]
+To practise writing a syntax transformation, reimplement this operation.
+Prove the composition and tensor identities, then define
+\begin{lstlisting}
+invert :: QOp -> QOp
+\end{lstlisting}
+by structural recursion.  Begin with \lstinline|Id|, $X$, $Y$, $Z$, $H$,
+tensor, and composition.  Then use the displayed laws for controls and
+rotations; an adjoint node cancels an adjoint, while \lstinline|SX| may be
+wrapped in \lstinline|Adjoint|.  Compare matrices with \lstinline|adj u|.
+The declaration above is abridged, so consult \lstinline|QPP.Syntax| before
+claiming an exhaustive definition.  Why can the same method not reverse a
+\lstinline|Program| containing \lstinline|Measure|?
+\end{exercise}
+
+\begin{samepage}
+\section{What to retain}
+
+States are unit vectors up to global phase; unitaries evolve them; measurement
+in a chosen orthonormal basis samples the squared magnitudes of the
+corresponding amplitudes.  Relative phase produces interference, and
+entanglement places information in joint states.  QPP connects these ideas to
+typed syntax, structural recursion, interpretation, and effectful syntax:
+
+\begin{center}
+\small
+\begin{tabular}{p{0.29\textwidth}p{0.31\textwidth}p{0.29\textwidth}}
+Quantum concept & QPP representation & Haskell idea \\
+\hline
+$\ket\psi$, amplitudes & \lstinline|StateT|, \lstinline|ket|, \lstinline|.*|, \lstinline|.+| & values and complex numbers \\
+$|\inner{\varphi}{\psi}|^2$ & \lstinline|inner|, \lstinline|prob| & functions and partial application \\
+unitary operator & \lstinline|QOp| & algebraic data and syntax trees \\
+$U\ket\psi$ & \lstinline|apply (evalOp u) ψ| & syntax interpreted by a backend \\
+$U\circ V$, $U\otimes V$, $U^\dagger$ & \lstinline|∘|, \lstinline|⊗|, \lstinline|adj| & recursive program structure \\
+measurement & \lstinline|Measure| in a \lstinline|Program| & effectful operations as data \\
+repeated experiment & \lstinline|evalProg| with an \lstinline|RNG| & laziness and reproducibility
+\end{tabular}
+\end{center}
+
+Later lectures build on these correspondences to analyse, transform, and
+optimise quantum programs before choosing a backend on which to run them.
+\end{samepage}
+
+\end{document}
